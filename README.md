@@ -1,7 +1,7 @@
 # amazon-feed
 A simple Python script to generate a [JSON Feed](https://github.com/brentsimmons/JSONFeed) for search results on [Amazon](https://www.amazon.com).
 
-Uses the unofficial API and served over [Flask!](https://github.com/pallets/flask/)
+Uses [BeautifulSoup 4](https://www.crummy.com/software/BeautifulSoup/) and served over [Flask!](https://github.com/pallets/flask/)
 
 Use the [Docker build](https://hub.docker.com/r/leonghui/amazon-feed) to host your own instance.
 
