@@ -218,7 +218,7 @@ def get_listing(search_query):
         timestamp = datetime.now().timestamp()
 
         item = {
-            'id': item_url,
+            'id': datetime.utcfromtimestamp(timestamp).isoformat('T'),
             'url': item_url,
             'title': f"[{item_price_text}] {item_title}",
             'content_html': bleach.clean(
