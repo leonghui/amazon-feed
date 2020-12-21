@@ -31,7 +31,7 @@ country_to_domain = {
     'US': 'www.amazon.com'
 }
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 allowed_tags = bleach.ALLOWED_TAGS + ['br', 'img', 'span', 'u', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
