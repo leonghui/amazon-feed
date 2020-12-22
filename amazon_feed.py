@@ -85,12 +85,11 @@ def get_random_user_agent():
     return random.choice(user_agent_list)
 
 
-def get_search_response(url):
-    logging.debug(f"Querying endpoint: {url}")
+def get_search_response(url, search_query):
 
     session = requests.Session()
     user_agent = get_random_user_agent()
-    logging.debug(f"Using user-agent: {user_agent}")
+    logging.debug(f'"{search_query.query}" - Using user-agent: "{user_agent}"')
 
     # mimic headers from Firefox 84.0
     session.headers.update(
@@ -106,6 +105,7 @@ def get_search_response(url):
         }
     )
 
+    logging.debug(f'"{search_query.query}" - Querying endpoint: {url}')
     response = session.get(url)
 
     return handle_response(response)
@@ -173,7 +173,7 @@ def get_listing(search_query):
 
     search_url = get_search_url(base_url, search_query)
 
-    response_body = get_search_response(search_url)
+    response_body = get_search_response(search_url, search_query)
 
     response_soup = BeautifulSoup(response_body.text, features='html.parser')
 
@@ -182,22 +182,22 @@ def get_listing(search_query):
 
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query.split()])
-        logging.debug(f"Strict mode enabled, title must contain: {term_list}")
+        logging.debug(
+            f'"{search_query.query}" - strict mode enabled, title must contain: {term_list}')
 
     results_count = len(results_soup)
-    logging.debug(f"{results_count} results found")
 
     output = get_top_level_feed(base_url, search_query)
 
     if response_soup.find(id='captchacharacters'):
-        logging.error('Catpcha triggered, blocked')
+        logging.warn(f'{search_query.query} - captcha triggered, blocked')
         return output
 
     items = []
 
     for item_soup in results_soup:
-        asin = item_soup['data-asin']
-        item_url = f"{base_url}/dp/{asin}"
+        item_id = item_soup['data-asin']
+        item_url = f"{base_url}/dp/{item_id}"
 
         # use wildcard CSS selector for better compatibility
         item_title_soup = item_soup.select_one("[class*='s-line-clamp-']")
@@ -232,13 +232,16 @@ def get_listing(search_query):
         }
 
         if search_query.srp_only and not item_price:
-            logging.debug(f'SRP only enabled, item "{item_title}" removed')
+            logging.debug(
+                f'"{search_query.query}" - SRP only - removed {item_id} "{item_title}"')
         elif search_query.strict and (term_list and not all(item_title.lower().find(term) >= 0 for term in term_list)):
-            logging.debug(f'Strict mode enabled, item "{item_title}" removed')
+            logging.debug(
+                f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
         else:
             items.append(item)
 
     output['items'] = items
-    logging.debug(f"{len(items)} results published")
+    logging.info(
+        f'"{search_query.query}" - found {results_count} - published {len(items)}')
 
     return output
