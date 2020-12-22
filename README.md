@@ -13,7 +13,7 @@ Use the [Docker build](https://hub.docker.com/r/leonghui/amazon-feed) to host yo
     - country: `http://<host>/?query={query_string}&country={AU/BR/CA/CN/FR/DE/IN/IT/JP/MX/NL/ES/TR/AE/UK/US}`
     - max price: `http://<host>/?query={query_string}&max_price={int}`
     - min price: `http://<host>/?query={query_string}&min_price={int}`
-    - srp only: `http://<host>/?query={query_string}&srp_only=yes`
+    - buybox only: `http://<host>/?query={query_string}&buybox_only=yes`
     - strict mode (terms must appear in the title): `http://<host>/?query={query_string}&strict=yes`
 
 E.g.
@@ -25,7 +25,7 @@ Feed link:
 http://<host>/?query=radeon%206800
 
 Filtered feed link:
-http://<host>/?query=radeon%206800&min_price=800&max_price=1250&country=sg&srp_only=true&strict=true
+http://<host>/?query=radeon%206800&min_price=800&max_price=1250&country=sg&buybox_only=true&strict=true
 ```
 
 Tested with:

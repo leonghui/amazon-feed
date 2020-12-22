@@ -149,8 +149,8 @@ def get_top_level_feed(base_url, search_query):
     if search_query.max_price:
         filters.append(f"max {search_query.max_price}")
 
-    if search_query.srp_only:
-        filters.append('srp only')
+    if search_query.buybox_only:
+        filters.append('buybox only')
 
     if search_query.strict:
         filters.append('strict')
@@ -205,7 +205,7 @@ def get_listing(search_query):
 
         item_price_soup = item_soup.select_one('.a-price .a-offscreen')
         item_price = item_price_soup.text.strip() if item_price_soup else None
-        item_price_text = item_price if item_price else 'Out of SRP'
+        item_price_text = item_price if item_price else 'N/A'
 
         item_thumbnail_soup = item_soup.find(
             attrs={'data-component-type': 's-product-image'})
@@ -231,9 +231,9 @@ def get_listing(search_query):
             'date_published': datetime.utcfromtimestamp(timestamp).isoformat('T')
         }
 
-        if search_query.srp_only and not item_price:
+        if search_query.buybox_only and not item_price:
             logging.debug(
-                f'"{search_query.query}" - SRP only - removed {item_id} "{item_title}"')
+                f'"{search_query.query}" - buybox only - removed {item_id} "{item_title}"')
         elif search_query.strict and (term_list and not all(item_title.lower().find(term) >= 0 for term in term_list)):
             logging.debug(
                 f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')

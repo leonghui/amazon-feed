@@ -19,7 +19,7 @@ def form():
     min_price = request.args.get('min_price')
     max_price = request.args.get('max_price')
     country_text = request.args.get('country')
-    srp_only_text = request.args.get('srp_only')
+    buybox_only_text = request.args.get('buybox_only')
     strict_text = request.args.get('strict')
 
     if not isinstance(query_text, str):
@@ -42,14 +42,14 @@ def form():
     else:
         country = 'US'
 
-    srp_only = True if isinstance(
-        srp_only_text, str) and string_to_boolean(srp_only_text) else False
+    buybox_only = True if isinstance(
+        buybox_only_text, str) and string_to_boolean(buybox_only_text) else False
 
     strict = True if isinstance(
         strict_text, str) and string_to_boolean(strict_text) else False
 
     search_query = AmazonSearchQueryClass(
-        query_text, node_id, country, min_price, max_price, srp_only, strict)
+        query_text, node_id, country, min_price, max_price, buybox_only, strict)
 
     try:
         output = get_listing(search_query)
