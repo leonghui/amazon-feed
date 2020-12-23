@@ -1,9 +1,9 @@
 from datetime import datetime
 from amazon_search_query_class import AmazonSearchQueryClass
 from urllib.parse import quote_plus, urlparse, urlencode
+from flask import abort
 
 import bleach
-import logging
 import requests
 import random
 from bs4 import BeautifulSoup
@@ -31,8 +31,6 @@ country_to_domain = {
     'US': 'www.amazon.com'
 }
 
-logging.basicConfig(level=logging.INFO)
-
 allowed_tags = bleach.ALLOWED_TAGS + ['br', 'img', 'span', 'u', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
@@ -49,9 +47,7 @@ def handle_response(response):
 
     # return HTTP error code
     if not response.ok:
-        msg = f"HTTP error {response.status_code}"
-        logging.error(msg)
-        return msg
+        abort(500, f"HTTP status from source: {response.status_code}")
 
     return response
 
@@ -85,11 +81,11 @@ def get_random_user_agent():
     return random.choice(user_agent_list)
 
 
-def get_search_response(url, search_query):
+def get_search_response(url, search_query, logger):
 
     session = requests.Session()
     user_agent = get_random_user_agent()
-    logging.debug(f'"{search_query.query}" - Using user-agent: "{user_agent}"')
+    logger.debug(f'"{search_query.query}" - Using user-agent: "{user_agent}"')
 
     # mimic headers from Firefox 84.0
     session.headers.update(
@@ -105,7 +101,7 @@ def get_search_response(url, search_query):
         }
     )
 
-    logging.debug(f'"{search_query.query}" - Querying endpoint: {url}')
+    logger.debug(f'"{search_query.query}" - Querying endpoint: {url}')
     response = session.get(url)
 
     return handle_response(response)
@@ -168,12 +164,12 @@ def get_top_level_feed(base_url, search_query):
     return output
 
 
-def get_listing(search_query):
+def get_listing(search_query, logger):
     base_url = f"https://{get_domain(search_query.country)}"
 
     search_url = get_search_url(base_url, search_query)
 
-    response_body = get_search_response(search_url, search_query)
+    response_body = get_search_response(search_url, search_query, logger)
 
     response_soup = BeautifulSoup(response_body.text, features='html.parser')
 
@@ -182,7 +178,7 @@ def get_listing(search_query):
 
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query.split()])
-        logging.debug(
+        logger.debug(
             f'"{search_query.query}" - strict mode enabled, title must contain: {term_list}')
 
     results_count = len(results_soup)
@@ -190,7 +186,7 @@ def get_listing(search_query):
     output = get_top_level_feed(base_url, search_query)
 
     if response_soup.find(id='captchacharacters'):
-        logging.warn(f'{search_query.query} - captcha triggered, blocked')
+        logger.warn(f'{search_query.query} - captcha triggered, blocked')
         return output
 
     items = []
@@ -232,16 +228,16 @@ def get_listing(search_query):
         }
 
         if search_query.buybox_only and not item_price:
-            logging.debug(
+            logger.debug(
                 f'"{search_query.query}" - buybox only - removed {item_id} "{item_title}"')
         elif search_query.strict and (term_list and not all(item_title.lower().find(term) >= 0 for term in term_list)):
-            logging.debug(
+            logger.debug(
                 f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
         else:
             items.append(item)
 
     output['items'] = items
-    logging.info(
+    logger.info(
         f'"{search_query.query}" - found {results_count} - published {len(items)}')
 
     return output

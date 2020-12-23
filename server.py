@@ -1,11 +1,12 @@
-from flask import Flask, request, jsonify
-from requests import exceptions
+from flask import Flask, request, jsonify, abort
+from flask.logging import create_logger
 
 from amazon_feed import get_listing
 from amazon_search_query_class import AmazonSearchQueryClass
 
 
 app = Flask(__name__)
+logger = create_logger(app)
 
 
 def string_to_boolean(string):
@@ -52,12 +53,12 @@ def form():
         query_text, node_id, country, min_price, max_price, buybox_only, strict)
 
     try:
-        output = get_listing(search_query)
+        output = get_listing(search_query, logger)
         response = jsonify(output)
         response.mimetype = 'application/feed+json'
         return response
-    except exceptions.RequestException:
-        return f"Error generating output for query {query_text}."
+    except Exception:
+        abort(500, description='Error generating output')
 
 
 if __name__ == '__main__':
