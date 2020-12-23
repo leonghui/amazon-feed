@@ -9,7 +9,7 @@ import random
 from bs4 import BeautifulSoup
 
 
-JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1'
+JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1.1'
 
 country_to_domain = {
     'AU': 'www.amazon.com.au',

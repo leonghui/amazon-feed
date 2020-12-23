@@ -53,7 +53,9 @@ def form():
 
     try:
         output = get_listing(search_query)
-        return jsonify(output)
+        response = jsonify(output)
+        response.mimetype = 'application/feed+json'
+        return response
     except exceptions.RequestException:
         return f"Error generating output for query {query_text}."
 
