@@ -35,13 +35,8 @@ def form():
     if max_price and not max_price.isnumeric():
         abort(400, description='Invalid max price.')
 
-    country = None
-
-    if country_text:
-        if isinstance(country_text, str) and len(country_text) == 2:
-            country = country_text.upper()
-    else:
-        country = 'US'
+    country = country_text.upper() if isinstance(
+        country_text, str) and len(country_text) == 2 else 'US'
 
     buybox_only = True if isinstance(
         buybox_only_text, str) and string_to_boolean(buybox_only_text) else False
