@@ -24,16 +24,16 @@ def form():
     strict_text = request.args.get('strict')
 
     if not isinstance(query_text, str):
-        return 'Please provide a valid query string.'
+        abort(400, description='Please provide a valid query string.')
 
     if node_id and not isinstance(node_id, str):
-        return 'Please provide a valid node id.'
+        abort(400, description='Please provide a valid node id.')
 
     if min_price and not min_price.isnumeric():
-        return 'Invalid min price.'
+        abort(400, description='Invalid min price.')
 
     if max_price and not max_price.isnumeric():
-        return 'Invalid max price.'
+        abort(400, description='Invalid max price.')
 
     country = None
 
