@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, abort
 from flask.logging import create_logger
 
 from amazon_feed import get_listing
-from amazon_search_query_class import AmazonSearchQueryClass
+from amazon_feed_data import AmazonSearchQuery
 
 
 app = Flask(__name__)
@@ -40,8 +40,10 @@ def form():
     strict = True if isinstance(
         strict_text, str) and string_to_boolean(strict_text) else False
 
-    search_query = AmazonSearchQueryClass(
-        query_text, country, min_price, max_price, buybox_only, strict)
+    search_query = AmazonSearchQuery(
+        query_text, country, buybox_only, strict, min_price, max_price)
+
+    logger.debug(search_query) # log values
 
     try:
         output = get_listing(search_query, logger)

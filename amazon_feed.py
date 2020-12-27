@@ -1,5 +1,5 @@
 from datetime import datetime
-from amazon_search_query_class import AmazonSearchQueryClass
+from amazon_feed_data import AmazonSearchQuery
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
 
