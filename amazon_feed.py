@@ -176,6 +176,40 @@ def get_top_level_feed(base_url, query_object):
     return json_feed
 
 
+def generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url):
+    item_title = item_title_soup.text.strip() if item_title_soup else ''
+
+    item_price = item_price_soup.text.strip() if item_price_soup else None
+    item_price_text = item_price if item_price else 'N/A'
+
+    item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" /><p>'
+
+    item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
+    item_add_to_cart_html = f'<a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
+
+    content_body = item_thumbnail_html + \
+        item_add_to_cart_html if item_thumbnail_url else item_thumbnail_html
+
+    sanitized_html = bleach.clean(
+        content_body,
+        tags=allowed_tags,
+        attributes=allowed_attributes
+    ).replace('&amp;', '&')  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
+
+    timestamp = datetime.now().timestamp()
+
+    feed_item = JsonFeedItem(
+        id = datetime.utcfromtimestamp(timestamp).isoformat('T'),
+        url = item_url,
+        title = f"[{item_price_text}] {item_title}",
+        content_html = sanitized_html,
+        image = item_thumbnail_url,
+        date_published = datetime.utcfromtimestamp(timestamp).isoformat('T')
+    )
+
+    return feed_item
+
+
 def get_search_results(search_query, logger):
     base_url = f"https://{get_domain(search_query.country)}"
 
@@ -204,37 +238,15 @@ def get_search_results(search_query, logger):
         item_title = item_title_soup.text.strip() if item_title_soup else ''
 
         item_price_soup = item_soup.select_one('.a-price .a-offscreen')
-        item_price = item_price_soup.text.strip() if item_price_soup else None
-        item_price_text = item_price if item_price else 'N/A'
 
         item_thumbnail_soup = item_soup.find(
             attrs={'data-component-type': 's-product-image'})
         item_thumbnail_img_soup = item_thumbnail_soup.select_one('.s-image')
-        item_thumbnail_url = item_thumbnail_img_soup.get(
-            'src') if item_thumbnail_img_soup else None
+        item_thumbnail_url = item_thumbnail_img_soup.get('src') if item_thumbnail_img_soup else None
 
-        item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
+        feed_item = generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url)
 
-        content_body = f'<img src=\"{item_thumbnail_url}\" /><p><a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
-
-        timestamp = datetime.now().timestamp()
-
-        sanitized_html = bleach.clean(
-            content_body,
-            tags=allowed_tags,
-            attributes=allowed_attributes
-        ).replace('&amp;', '&')  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
-
-        feed_item = JsonFeedItem(
-            id = datetime.utcfromtimestamp(timestamp).isoformat('T'),
-            url = item_url,
-            title = f"[{item_price_text}] {item_title}",
-            content_html = sanitized_html,
-            image = item_thumbnail_url,
-            date_published = datetime.utcfromtimestamp(timestamp).isoformat('T')
-        )
-
-        if search_query.buybox_only and not item_price:
+        if search_query.buybox_only and not item_price_soup:
             logger.debug(
                 f'"{search_query.query}" - buybox only - removed {item_id} "{item_title}"')
         elif search_query.strict and (term_list and not all(item_title.lower().find(term) >= 0 for term in term_list)):
@@ -260,7 +272,6 @@ def get_item_listing(listing_query, logger):
 
     # select product title
     item_title_soup = response_soup.select_one('span#productTitle')
-    item_title = item_title_soup.text.strip() if item_title_soup else ''
 
     # select price in the buybox
     item_price_soup = response_soup.select_one('span#price_inside_buybox')
@@ -275,38 +286,13 @@ def get_item_listing(listing_query, logger):
             f'"{listing_query.query}" - unqualified buybox or out of stock')
         return json_feed
 
-    item_price = item_price_soup.text.strip() if item_price_soup else None
-    item_price_text = item_price if item_price else 'N/A'
-
     item_thumbnail_soup = response_soup.select_one('div#main-image-container')
     item_thumbnail_img_soup = item_thumbnail_soup.select_one(
         'img#landingImage')
     item_thumbnail_url = item_thumbnail_img_soup.get(
         'data-old-hires') if item_thumbnail_img_soup else None
-    item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" /><p>'
 
-    item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
-    item_add_to_cart_html = f'<a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
-
-    content_body = item_thumbnail_html + \
-        item_add_to_cart_html if item_thumbnail_url else item_thumbnail_html
-
-    sanitized_html = bleach.clean(
-        content_body,
-        tags=allowed_tags,
-        attributes=allowed_attributes
-    ).replace('&amp;', '&')  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
-
-    timestamp = datetime.now().timestamp()
-
-    feed_item = JsonFeedItem(
-        id = datetime.utcfromtimestamp(timestamp).isoformat('T'),
-        url = item_url,
-        title = f"[{item_price_text}] {item_title}",
-        content_html = sanitized_html,
-        image = item_thumbnail_url,
-        date_published = datetime.utcfromtimestamp(timestamp).isoformat('T')
-    )
+    feed_item = generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url)
 
     json_feed.items.append(feed_item)
 
