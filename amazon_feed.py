@@ -129,26 +129,31 @@ def get_search_url(base_url, search_query):
     return search_uri + urlencode(search_dict)
 
 
-def get_top_level_feed(base_url, search_query):
+def get_top_level_feed(base_url, query):
 
     parse_object = urlparse(base_url)
     domain = parse_object.netloc
 
-    title_strings = [domain, search_query.query]
+    title_strings = [domain, query.query]
 
     filters = []
 
-    if search_query.min_price:
-        filters.append(f"min {search_query.min_price}")
+    if isinstance(query, AmazonSearchQuery):
+        home_page_url = get_search_url(base_url, query)
+        if query.buybox_only:
+            filters.append('buybox only')
 
-    if search_query.max_price:
-        filters.append(f"max {search_query.max_price}")
+        if query.strict:
+            filters.append('strict')
 
-    if search_query.buybox_only:
-        filters.append('buybox only')
+    elif isinstance(query, AmazonListQuery):
+        home_page_url = base_url + '/gp/product/' + query.query
 
-    if search_query.strict:
-        filters.append('strict')
+    if query.min_price:
+        filters.append(f"min {query.min_price}")
+
+    if query.max_price:
+        filters.append(f"max {query.max_price}")
 
     if filters:
         title_strings.append(f"filtered by {', '.join(filters)}")
@@ -156,7 +161,7 @@ def get_top_level_feed(base_url, search_query):
     output = {
         'version': JSONFEED_VERSION_URL,
         'title': ' - '.join(title_strings),
-        'home_page_url': get_search_url(base_url, search_query),
+        'home_page_url': home_page_url,
         'favicon': base_url + '/favicon.ico'
     }
 
@@ -249,7 +254,7 @@ def get_listing_response(url, listing_query, logger):
 
     session = requests.Session()
     user_agent = get_random_user_agent()
-    logger.debug(f'"{listing_query.id}" - Using user-agent: "{user_agent}"')
+    logger.debug(f'"{listing_query.query}" - Using user-agent: "{user_agent}"')
 
     # mimic headers from Firefox 84.0
     session.headers.update(
@@ -265,52 +270,21 @@ def get_listing_response(url, listing_query, logger):
         }
     )
 
-    logger.debug(f'"{listing_query.id}" - Querying endpoint: {url}')
+    logger.debug(f'"{listing_query.query}" - Querying endpoint: {url}')
     response = session.get(url)
 
     return handle_response(response)
 
 
-def get_item_top_level_feed(base_url, listing_query):
-
-    parse_object = urlparse(base_url)
-    domain = parse_object.netloc
-
-    title_strings = [domain, listing_query.id]
-
-    filters = []
-
-    if listing_query.min_price:
-        filters.append(f"min {listing_query.min_price}")
-
-    if listing_query.max_price:
-        filters.append(f"max {listing_query.max_price}")
-
-    if listing_query.buybox_only:
-        filters.append('buybox only')
-
-    if filters:
-        title_strings.append(f"filtered by {', '.join(filters)}")
-
-    output = {
-        'version': JSONFEED_VERSION_URL,
-        'title': ' - '.join(title_strings),
-        'home_page_url': base_url + '/gp/product/' + listing_query.id,
-        'favicon': base_url + '/favicon.ico'
-    }
-
-    return output
-
-
 def get_item_listing(listing_query, logger):
     base_url = 'https://' + get_domain(listing_query.country)
 
-    item_url = base_url + '/gp/product/' + listing_query.id
+    item_url = base_url + '/gp/product/' + listing_query.query
 
     response_body = get_listing_response(item_url, listing_query, logger)
     response_soup = BeautifulSoup(response_body.text, features='html.parser')
 
-    item_id = listing_query.id
+    item_id = listing_query.query
 
     # select product title
     item_title_soup = response_soup.select_one('span#productTitle')
@@ -351,7 +325,7 @@ def get_item_listing(listing_query, logger):
         'date_published': datetime.utcfromtimestamp(timestamp).isoformat('T')
     }
 
-    output = get_item_top_level_feed(base_url, listing_query)
+    output = get_top_level_feed(base_url, listing_query)
     output['items'] = [item]
 
     return output

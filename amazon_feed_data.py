@@ -8,28 +8,23 @@ class _PriceFilter:
 
 
 @dataclass
-class _BaseSearchQuery:
+class _BaseQuery:
     query: str
-    strict: bool = False
+    country: str = 'US'
 
 
 @dataclass
 class _AmazonSearchFilter:
-    country: str = 'US'
+    strict: bool = False
     buybox_only: bool = False
 
 
 @dataclass
-class AmazonSearchQuery(_PriceFilter, _AmazonSearchFilter, _BaseSearchQuery):
-    __slots__ = ['query', 'strict', 'country',
+class AmazonSearchQuery(_PriceFilter, _AmazonSearchFilter, _BaseQuery):
+    __slots__ = ['query', 'country', 'strict',
                  'buybox_only', 'min_price', 'max_price']
 
 
 @dataclass
-class _BaseItemListing:
-    id: str
-
-
-@dataclass
-class AmazonListQuery(_PriceFilter, _AmazonSearchFilter, _BaseItemListing):
-    __slots__ = ['id', 'country', 'buybox_only' 'min_price', 'max_price']
+class AmazonListQuery(_PriceFilter, _BaseQuery):
+    __slots__ = ['query', 'country', 'min_price', 'max_price']
