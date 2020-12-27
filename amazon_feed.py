@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 
 
 JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1.1'
+ITEM_QUANTITY = 1
 
 country_to_domain = {
     'AU': 'www.amazon.com.au',
@@ -209,7 +210,9 @@ def get_listing(search_query, logger):
         item_thumbnail_url = item_thumbnail_img_soup.get(
             'src') if item_thumbnail_img_soup else None
 
-        content_body = f'<img src=\"{item_thumbnail_url}\" />'
+        item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
+
+        content_body = f'<img src=\"{item_thumbnail_url}\" /><p><a href=\"{item_add_to_cart_url}\">Add to Cart </a></p>'
 
         timestamp = datetime.now().timestamp()
 
