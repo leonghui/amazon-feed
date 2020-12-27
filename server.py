@@ -49,8 +49,8 @@ def process_query():
         response = jsonify(output)
         response.mimetype = 'application/feed+json'
         return response
-    except Exception:
-        abort(500, description='Error generating output')
+    except Exception as e:
+        abort(500, description=f"Error generating output: {e}")
 
 
 def process_listing():
@@ -73,10 +73,13 @@ def process_listing():
 
     logger.debug(list_query)  # log values
 
-    output = get_item_listing(list_query, logger)
-    response = jsonify(output)
-    response.mimetype = 'application/feed+json'
-    return response
+    try:
+        output = get_item_listing(list_query, logger)
+        response = jsonify(output)
+        response.mimetype = 'application/feed+json'
+        return response
+    except Exception as e:
+        abort(500, description=f"Error generating output: {e}")
 
 
 @app.route('/', methods=['GET'])
