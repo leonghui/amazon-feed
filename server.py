@@ -12,15 +12,17 @@ logger = create_logger(app)
 @app.route('/', methods=['GET'])
 @app.route('/search', methods=['GET'])
 def process_query():
-    query_text = request.args.get('query')
+    query = request.args.get('query')
     country = request.args.get('country')
     min_price = request.args.get('min_price')
     max_price = request.args.get('max_price')
-    buybox_only_text = request.args.get('buybox_only')
-    strict_text = request.args.get('strict')
+    buybox_only = request.args.get('buybox_only')
+    strict = request.args.get('strict')
 
-    search_query = AmazonSearchQuery(QueryStatus(ok=True, errors=[]),
-                                     query_text, country, min_price, max_price, buybox_only_text, strict_text)
+    search_query = AmazonSearchQuery(
+        QueryStatus(ok=True, errors=[]),
+        query, country, min_price, max_price, buybox_only, strict
+    )
 
     if not search_query.status.ok:
         abort(400, description='Errors found: ' +
@@ -41,8 +43,10 @@ def process_listing():
     min_price = None
     max_price = request.args.get('max_price')
 
-    list_query = AmazonListQuery(QueryStatus(ok=True, errors=[]),
-                                 query, country, min_price, max_price)
+    list_query = AmazonListQuery(
+        QueryStatus(ok=True, errors=[]),
+        query, country, min_price, max_price
+    )
 
     logger.debug(list_query)  # log values
 

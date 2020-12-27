@@ -46,7 +46,8 @@ def handle_response(response):
 
     # return HTTP error code
     if not response.ok:
-        abort(500, f"HTTP status from source: {response.status_code}")
+        abort(
+            500, description=f"HTTP status from source: {response.status_code}")
 
     return response
 
