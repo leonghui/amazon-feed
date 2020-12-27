@@ -132,8 +132,8 @@ def get_search_url(base_url, query_object):
     return search_uri + urlencode(search_dict)
 
 
-def get_listing_url(base_url, query_object):
-    return base_url + '/gp/product/' + query_object.query
+def get_item_url(base_url, item_id):
+    return base_url + '/gp/product/' + item_id
 
 
 def get_top_level_feed(base_url, query_object):
@@ -154,7 +154,7 @@ def get_top_level_feed(base_url, query_object):
             filters.append('strict')
 
     elif isinstance(query_object, AmazonListQuery):
-        home_page_url = get_listing_url(base_url, query_object)
+        home_page_url = get_item_url(base_url, query_object.query)
 
     if query_object.min_price:
         filters.append(f"min {query_object.min_price}")
@@ -176,7 +176,7 @@ def get_top_level_feed(base_url, query_object):
     return json_feed
 
 
-def generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url):
+def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url):
     item_title = item_title_soup.text.strip() if item_title_soup else ''
 
     item_price = item_price_soup.text.strip() if item_price_soup else None
@@ -200,7 +200,7 @@ def generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup,
 
     feed_item = JsonFeedItem(
         id=datetime.utcfromtimestamp(timestamp).isoformat('T'),
-        url=item_url,
+        url=get_item_url(base_url, item_id),
         title=f"[{item_price_text}] {item_title}",
         content_html=sanitized_html,
         image=item_thumbnail_url,
@@ -231,7 +231,6 @@ def get_search_results(search_query, logger):
 
     for item_soup in results_soup:
         item_id = item_soup['data-asin']
-        item_url = f"{base_url}/dp/{item_id}"
 
         # select product title, use wildcard CSS selector for better compatibility
         item_title_soup = item_soup.select_one("[class*='s-line-clamp-']")
@@ -253,7 +252,7 @@ def get_search_results(search_query, logger):
                 f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
         else:
             feed_item = generate_item(
-                base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url)
+                base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
             json_feed.items.append(feed_item)
 
     logger.info(
@@ -265,11 +264,10 @@ def get_search_results(search_query, logger):
 def get_item_listing(listing_query, logger):
     base_url = 'https://' + get_domain(listing_query.country)
 
-    item_url = get_listing_url(base_url, listing_query)
+    item_id = listing_query.query
+    item_url = get_item_url(base_url, item_id)
 
     response_soup = get_response_soup(item_url, listing_query, logger)
-
-    item_id = listing_query.query
 
     # select product title
     item_title_soup = response_soup.select_one('span#productTitle')
@@ -293,8 +291,8 @@ def get_item_listing(listing_query, logger):
     item_thumbnail_url = item_thumbnail_img_soup.get(
         'data-old-hires') if item_thumbnail_img_soup else None
 
-    feed_item = generate_item(base_url, item_id, item_url,
-                              item_title_soup, item_price_soup, item_thumbnail_url)
+    feed_item = generate_item(
+        base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
 
     json_feed.items.append(feed_item)
 
