@@ -16,7 +16,6 @@ def string_to_boolean(string):
 @app.route('/', methods=['GET'])
 def form():
     query_text = request.args.get('query')
-    node_id = request.args.get('node_id')
     min_price = request.args.get('min_price')
     max_price = request.args.get('max_price')
     country_text = request.args.get('country')
@@ -25,9 +24,6 @@ def form():
 
     if not isinstance(query_text, str):
         abort(400, description='Please provide a valid query string.')
-
-    if node_id and not isinstance(node_id, str):
-        abort(400, description='Please provide a valid node id.')
 
     if min_price and not min_price.isnumeric():
         abort(400, description='Invalid min price.')
@@ -45,7 +41,7 @@ def form():
         strict_text, str) and string_to_boolean(strict_text) else False
 
     search_query = AmazonSearchQueryClass(
-        query_text, node_id, country, min_price, max_price, buybox_only, strict)
+        query_text, country, min_price, max_price, buybox_only, strict)
 
     try:
         output = get_listing(search_query, logger)
