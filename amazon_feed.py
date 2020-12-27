@@ -42,16 +42,6 @@ def get_domain(country):
     return domain if domain else country_to_domain.get('US')
 
 
-def handle_response(response):
-
-    # return HTTP error code
-    if not response.ok:
-        abort(
-            500, description=f"HTTP status from source: {response.status_code}")
-
-    return response
-
-
 def get_random_user_agent():
 
     # from https://github.com/Kikobeats/top-user-agents/blob/master/index.json
@@ -81,11 +71,11 @@ def get_random_user_agent():
     return random.choice(user_agent_list)
 
 
-def get_search_response(url, search_query, logger):
+def get_response_soup(url, query_object, logger):
 
     session = requests.Session()
     user_agent = get_random_user_agent()
-    logger.debug(f'"{search_query.query}" - Using user-agent: "{user_agent}"')
+    logger.debug(f'"{query_object.query}" - Using user-agent: "{user_agent}"')
 
     # mimic headers from Firefox 84.0
     session.headers.update(
@@ -101,25 +91,36 @@ def get_search_response(url, search_query, logger):
         }
     )
 
-    logger.debug(f'"{search_query.query}" - Querying endpoint: {url}')
+    logger.debug(f'"{query_object.query}" - Querying endpoint: {url}')
     response = session.get(url)
 
-    return handle_response(response)
+    # return HTTP error code
+    if not response.ok:
+        abort(
+            500, description=f"HTTP status from source: {response.status_code}")
+
+    response_soup = BeautifulSoup(response.text, features='html.parser')
+
+    if response_soup.find(id='captchacharacters'):
+        logger.warning(f'{query_object.query} - Captcha triggered')
+        abort(429, description='Captcha triggered')
+
+    return response_soup
 
 
-def get_search_url(base_url, search_query):
+def get_search_url(base_url, query_object):
     search_uri = f"{base_url}/s?"
 
-    search_dict = {'k': quote_plus(search_query.query)}
+    search_dict = {'k': quote_plus(query_object.query)}
 
     price_param_value = min_price = max_price = None
 
-    if search_query.min_price or search_query.max_price:
+    if query_object.min_price or query_object.max_price:
         price_param = 'p_36:'
-        if search_query.min_price:
-            min_price = search_query.min_price + '00'
-        if search_query.max_price:
-            max_price = search_query.max_price + '00'
+        if query_object.min_price:
+            min_price = query_object.min_price + '00'
+        if query_object.max_price:
+            max_price = query_object.max_price + '00'
 
         price_param_value = ''.join(
             item for item in [price_param, min_price, '-', max_price] if item)
@@ -130,31 +131,35 @@ def get_search_url(base_url, search_query):
     return search_uri + urlencode(search_dict)
 
 
-def get_top_level_feed(base_url, query):
+def get_listing_url(base_url, query_object):
+    return base_url + '/gp/product/' + query_object.query    
+
+
+def get_top_level_feed(base_url, query_object):
 
     parse_object = urlparse(base_url)
     domain = parse_object.netloc
 
-    title_strings = [domain, query.query]
+    title_strings = [domain, query_object.query]
 
     filters = []
 
-    if isinstance(query, AmazonSearchQuery):
-        home_page_url = get_search_url(base_url, query)
-        if query.buybox_only:
+    if isinstance(query_object, AmazonSearchQuery):
+        home_page_url = get_search_url(base_url, query_object)
+        if query_object.buybox_only:
             filters.append('buybox only')
 
-        if query.strict:
+        if query_object.strict:
             filters.append('strict')
 
-    elif isinstance(query, AmazonListQuery):
-        home_page_url = base_url + '/gp/product/' + query.query
+    elif isinstance(query_object, AmazonListQuery):
+        home_page_url = get_listing_url(base_url, query_object)
 
-    if query.min_price:
-        filters.append(f"min {query.min_price}")
+    if query_object.min_price:
+        filters.append(f"min {query_object.min_price}")
 
-    if query.max_price:
-        filters.append(f"max {query.max_price}")
+    if query_object.max_price:
+        filters.append(f"max {query_object.max_price}")
 
     if filters:
         title_strings.append(f"filtered by {', '.join(filters)}")
@@ -174,9 +179,7 @@ def get_search_results(search_query, logger):
 
     search_url = get_search_url(base_url, search_query)
 
-    response_body = get_search_response(search_url, search_query, logger)
-
-    response_soup = BeautifulSoup(response_body.text, features='html.parser')
+    response_soup = get_response_soup(search_url, search_query, logger)
 
     # select search results with "s-result-item" and "s-asin" class attributes
     results_soup = response_soup.select('.s-result-item.s-asin')
@@ -189,10 +192,6 @@ def get_search_results(search_query, logger):
     results_count = len(results_soup)
 
     output = get_top_level_feed(base_url, search_query)
-
-    if response_soup.find(id='captchacharacters'):
-        logger.warning(f'{search_query.query} - Captcha triggered')
-        abort(429, description='Captcha triggered')
 
     items = []
 
@@ -251,39 +250,12 @@ def get_search_results(search_query, logger):
     return output
 
 
-def get_listing_response(url, listing_query, logger):
-
-    session = requests.Session()
-    user_agent = get_random_user_agent()
-    logger.debug(f'"{listing_query.query}" - Using user-agent: "{user_agent}"')
-
-    # mimic headers from Firefox 84.0
-    session.headers.update(
-        {
-            'User-Agent': user_agent,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': 'https://www.amazon.com/',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'TE': 'Trailers'
-        }
-    )
-
-    logger.debug(f'"{listing_query.query}" - Querying endpoint: {url}')
-    response = session.get(url)
-
-    return handle_response(response)
-
-
 def get_item_listing(listing_query, logger):
     base_url = 'https://' + get_domain(listing_query.country)
 
-    item_url = base_url + '/gp/product/' + listing_query.query
+    item_url = get_listing_url(base_url, listing_query)
 
-    response_body = get_listing_response(item_url, listing_query, logger)
-    response_soup = BeautifulSoup(response_body.text, features='html.parser')
+    response_soup = get_response_soup(item_url, listing_query, logger)
 
     item_id = listing_query.query
 
