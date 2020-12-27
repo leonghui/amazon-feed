@@ -9,6 +9,8 @@ app = Flask(__name__)
 logger = create_logger(app)
 
 
+@app.route('/', methods=['GET'])
+@app.route('/search', methods=['GET'])
 def process_query():
     query_text = request.args.get('query')
     country = request.args.get('country')
@@ -32,6 +34,7 @@ def process_query():
     return response
 
 
+@app.route('/item', methods=['GET'])
 def process_listing():
     query = request.args.get('id')
     country = request.args.get('country')
@@ -51,21 +54,6 @@ def process_listing():
     response = jsonify(output)
     response.mimetype = 'application/feed+json'
     return response
-
-
-@app.route('/', methods=['GET'])
-def home():
-    return process_query()
-
-
-@app.route('/search', methods=['GET'])
-def search():
-    return process_query()
-
-
-@app.route('/item', methods=['GET'])
-def item():
-    return process_listing()
 
 
 if __name__ == '__main__':
