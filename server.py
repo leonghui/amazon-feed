@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, abort
 from flask.logging import create_logger
 
-from amazon_feed import get_listing
+from amazon_feed import get_search_results
 from amazon_feed_data import AmazonSearchQuery
 
 
@@ -13,8 +13,7 @@ def string_to_boolean(string):
     return string.lower().strip() in ['yes', 'true']
 
 
-@app.route('/', methods=['GET'])
-def form():
+def process_query():
     query_text = request.args.get('query')
     min_price = request.args.get('min_price')
     max_price = request.args.get('max_price')
@@ -43,15 +42,26 @@ def form():
     search_query = AmazonSearchQuery(
         query_text, country, buybox_only, strict, min_price, max_price)
 
-    logger.debug(search_query) # log values
+    logger.debug(search_query)  # log values
 
     try:
-        output = get_listing(search_query, logger)
+        output = get_search_results(search_query, logger)
         response = jsonify(output)
         response.mimetype = 'application/feed+json'
         return response
     except Exception:
         abort(500, description='Error generating output')
+
+
+
+@app.route('/', methods=['GET'])
+def home():
+    return process_query()
+
+
+@app.route('/search', methods=['GET'])
+def search():
+    return process_query()
 
 
 if __name__ == '__main__':

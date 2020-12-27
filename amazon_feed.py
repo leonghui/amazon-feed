@@ -162,7 +162,7 @@ def get_top_level_feed(base_url, search_query):
     return output
 
 
-def get_listing(search_query, logger):
+def get_search_results(search_query, logger):
     base_url = f"https://{get_domain(search_query.country)}"
 
     search_url = get_search_url(base_url, search_query)
