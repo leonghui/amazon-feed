@@ -190,8 +190,8 @@ def get_search_results(search_query, logger):
     output = get_top_level_feed(base_url, search_query)
 
     if response_soup.find(id='captchacharacters'):
-        logger.warn(f'{search_query.query} - captcha triggered, blocked')
-        return output
+        logger.warning(f'{search_query.query} - Captcha triggered')
+        abort(429, description='Captcha triggered')
 
     items = []
 
