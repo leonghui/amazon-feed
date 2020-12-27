@@ -199,12 +199,12 @@ def generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup,
     timestamp = datetime.now().timestamp()
 
     feed_item = JsonFeedItem(
-        id = datetime.utcfromtimestamp(timestamp).isoformat('T'),
-        url = item_url,
-        title = f"[{item_price_text}] {item_title}",
-        content_html = sanitized_html,
-        image = item_thumbnail_url,
-        date_published = datetime.utcfromtimestamp(timestamp).isoformat('T')
+        id=datetime.utcfromtimestamp(timestamp).isoformat('T'),
+        url=item_url,
+        title=f"[{item_price_text}] {item_title}",
+        content_html=sanitized_html,
+        image=item_thumbnail_url,
+        date_published=datetime.utcfromtimestamp(timestamp).isoformat('T')
     )
 
     return feed_item
@@ -233,7 +233,7 @@ def get_search_results(search_query, logger):
         item_id = item_soup['data-asin']
         item_url = f"{base_url}/dp/{item_id}"
 
-        # use wildcard CSS selector for better compatibility
+        # select product title, use wildcard CSS selector for better compatibility
         item_title_soup = item_soup.select_one("[class*='s-line-clamp-']")
         item_title = item_title_soup.text.strip() if item_title_soup else ''
 
@@ -242,9 +242,8 @@ def get_search_results(search_query, logger):
         item_thumbnail_soup = item_soup.find(
             attrs={'data-component-type': 's-product-image'})
         item_thumbnail_img_soup = item_thumbnail_soup.select_one('.s-image')
-        item_thumbnail_url = item_thumbnail_img_soup.get('src') if item_thumbnail_img_soup else None
-
-        feed_item = generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url)
+        item_thumbnail_url = item_thumbnail_img_soup.get(
+            'src') if item_thumbnail_img_soup else None
 
         if search_query.buybox_only and not item_price_soup:
             logger.debug(
@@ -253,6 +252,8 @@ def get_search_results(search_query, logger):
             logger.debug(
                 f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
         else:
+            feed_item = generate_item(
+                base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url)
             json_feed.items.append(feed_item)
 
     logger.info(
@@ -292,7 +293,8 @@ def get_item_listing(listing_query, logger):
     item_thumbnail_url = item_thumbnail_img_soup.get(
         'data-old-hires') if item_thumbnail_img_soup else None
 
-    feed_item = generate_item(base_url, item_id, item_url, item_title_soup, item_price_soup, item_thumbnail_url)
+    feed_item = generate_item(base_url, item_id, item_url,
+                              item_title_soup, item_price_soup, item_thumbnail_url)
 
     json_feed.items.append(feed_item)
 
