@@ -1,5 +1,6 @@
 from datetime import datetime
 from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
+from json_feed_data import JsonFeedTopLevel, JsonFeedItem
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
 
@@ -132,7 +133,7 @@ def get_search_url(base_url, query_object):
 
 
 def get_listing_url(base_url, query_object):
-    return base_url + '/gp/product/' + query_object.query    
+    return base_url + '/gp/product/' + query_object.query
 
 
 def get_top_level_feed(base_url, query_object):
@@ -164,14 +165,15 @@ def get_top_level_feed(base_url, query_object):
     if filters:
         title_strings.append(f"filtered by {', '.join(filters)}")
 
-    output = {
-        'version': JSONFEED_VERSION_URL,
-        'title': ' - '.join(title_strings),
-        'home_page_url': home_page_url,
-        'favicon': base_url + '/favicon.ico'
-    }
+    json_feed = JsonFeedTopLevel(
+        items=[],
+        version=JSONFEED_VERSION_URL,
+        title=' - '.join(title_strings),
+        home_page_url=home_page_url,
+        favicon=base_url + '/favicon.ico'
+    )
 
-    return output
+    return json_feed
 
 
 def get_search_results(search_query, logger):
@@ -191,9 +193,7 @@ def get_search_results(search_query, logger):
 
     results_count = len(results_soup)
 
-    output = get_top_level_feed(base_url, search_query)
-
-    items = []
+    json_feed = get_top_level_feed(base_url, search_query)
 
     for item_soup in results_soup:
         item_id = item_soup['data-asin']
@@ -225,14 +225,14 @@ def get_search_results(search_query, logger):
             attributes=allowed_attributes
         ).replace('&amp;', '&')  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
 
-        item = {
-            'id': datetime.utcfromtimestamp(timestamp).isoformat('T'),
-            'url': item_url,
-            'title': f"[{item_price_text}] {item_title}",
-            'content_html': sanitized_html,
-            'image': item_thumbnail_url,
-            'date_published': datetime.utcfromtimestamp(timestamp).isoformat('T')
-        }
+        feed_item = JsonFeedItem(
+            id = datetime.utcfromtimestamp(timestamp).isoformat('T'),
+            url = item_url,
+            title = f"[{item_price_text}] {item_title}",
+            content_html = sanitized_html,
+            image = item_thumbnail_url,
+            date_published = datetime.utcfromtimestamp(timestamp).isoformat('T')
+        )
 
         if search_query.buybox_only and not item_price:
             logger.debug(
@@ -241,13 +241,12 @@ def get_search_results(search_query, logger):
             logger.debug(
                 f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
         else:
-            items.append(item)
+            json_feed.items.append(feed_item)
 
-    output['items'] = items
     logger.info(
-        f'"{search_query.query}" - found {results_count} - published {len(items)}')
+        f'"{search_query.query}" - found {results_count} - published {len(json_feed.items)}')
 
-    return output
+    return json_feed
 
 
 def get_item_listing(listing_query, logger):
@@ -268,13 +267,13 @@ def get_item_listing(listing_query, logger):
     oos_soup = response_soup.select_one('div#outOfStock')
     unqualified_buybox_soup = response_soup.select_one('div#unqualifiedBuyBox')
 
-    output = get_top_level_feed(base_url, listing_query)
+    json_feed = get_top_level_feed(base_url, listing_query)
 
     # exit if unqualified buybox or out of stock
     if unqualified_buybox_soup or oos_soup:
-        logger.info(f'"{listing_query.query}" - unqualified buybox or out of stock')
-        output['items'] = []
-        return output
+        logger.info(
+            f'"{listing_query.query}" - unqualified buybox or out of stock')
+        return json_feed
 
     item_price = item_price_soup.text.strip() if item_price_soup else None
     item_price_text = item_price if item_price else 'N/A'
@@ -300,15 +299,15 @@ def get_item_listing(listing_query, logger):
 
     timestamp = datetime.now().timestamp()
 
-    item = {
-        'id': datetime.utcfromtimestamp(timestamp).isoformat('T'),
-        'url': item_url,
-        'title': f"[{item_price_text}] {item_title}",
-        'content_html': sanitized_html,
-        'image': item_thumbnail_url,
-        'date_published': datetime.utcfromtimestamp(timestamp).isoformat('T')
-    }
+    feed_item = JsonFeedItem(
+        id = datetime.utcfromtimestamp(timestamp).isoformat('T'),
+        url = item_url,
+        title = f"[{item_price_text}] {item_title}",
+        content_html = sanitized_html,
+        image = item_thumbnail_url,
+        date_published = datetime.utcfromtimestamp(timestamp).isoformat('T')
+    )
 
-    output['items'] = [item]
+    json_feed.items.append(feed_item)
 
-    return output
+    return json_feed
