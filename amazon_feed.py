@@ -38,8 +38,12 @@ allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
 
 
-def get_domain(country):
+def get_domain(country, logger):
     domain = country_to_domain.get(country)
+
+    if not domain:
+        logger.warning(f'Undefined country "{country}", defaulting to US')
+
     return domain if domain else country_to_domain.get('US')
 
 
@@ -211,7 +215,7 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
 
 
 def get_search_results(search_query, logger):
-    base_url = f"https://{get_domain(search_query.country)}"
+    base_url = f"https://{get_domain(search_query.country, logger)}"
 
     search_url = get_search_url(base_url, search_query)
 
@@ -262,7 +266,7 @@ def get_search_results(search_query, logger):
 
 
 def get_item_listing(listing_query, logger):
-    base_url = 'https://' + get_domain(listing_query.country)
+    base_url = 'https://' + get_domain(listing_query.country, logger)
 
     item_id = listing_query.query
     item_url = get_item_url(base_url, item_id)
