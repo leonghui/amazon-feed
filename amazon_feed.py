@@ -32,12 +32,9 @@ country_to_domain = {
     'US': 'www.amazon.com'
 }
 
-allowed_tags = bleach.ALLOWED_TAGS + ['br', 'img', 'span', 'u', 'p']
+allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
-allowed_attributes.update({'span': ['style']})
-allowed_styles = ['color']
-
 
 def get_domain(country):
     domain = country_to_domain.get(country)
@@ -212,20 +209,21 @@ def get_listing(search_query, logger):
 
         item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
 
-        content_body = f'<img src=\"{item_thumbnail_url}\" /><p><a href=\"{item_add_to_cart_url}\">Add to Cart </a></p>'
+        content_body = f'<img src=\"{item_thumbnail_url}\" /><p><a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
 
         timestamp = datetime.now().timestamp()
+
+        sanitized_html = bleach.clean(
+            content_body,
+            tags=allowed_tags,
+            attributes=allowed_attributes
+        ).replace('&amp;', '&')  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
 
         item = {
             'id': datetime.utcfromtimestamp(timestamp).isoformat('T'),
             'url': item_url,
             'title': f"[{item_price_text}] {item_title}",
-            'content_html': bleach.clean(
-                content_body,
-                tags=allowed_tags,
-                attributes=allowed_attributes,
-                styles=allowed_styles
-            ),
+            'content_html': sanitized_html,
             'image': item_thumbnail_url,
             'date_published': datetime.utcfromtimestamp(timestamp).isoformat('T')
         }
