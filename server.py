@@ -6,6 +6,7 @@ from amazon_feed_data import AmazonSearchQuery, AmazonListQuery, QueryStatus
 
 
 app = Flask(__name__)
+app.config.update({'JSONIFY_MIMETYPE': 'application/feed+json'})
 logger = create_logger(app)
 
 
@@ -20,9 +21,7 @@ def generate_response(query_object):
         output = get_search_results(query_object, logger)
     elif isinstance(query_object, AmazonListQuery):
         output = get_item_listing(query_object, logger)
-    response = jsonify(output)
-    response.mimetype = 'application/feed+json'
-    return response
+    return jsonify(output)
 
 
 @app.route('/', methods=['GET'])
