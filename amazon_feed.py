@@ -1,5 +1,5 @@
 from datetime import datetime
-from amazon_feed_data import AmazonSearchQuery
+from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
 
@@ -35,6 +35,7 @@ country_to_domain = {
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
+
 
 def get_domain(country):
     domain = country_to_domain.get(country)
@@ -240,5 +241,117 @@ def get_search_results(search_query, logger):
     output['items'] = items
     logger.info(
         f'"{search_query.query}" - found {results_count} - published {len(items)}')
+
+    return output
+
+
+def get_listing_response(url, listing_query, logger):
+
+    session = requests.Session()
+    user_agent = get_random_user_agent()
+    logger.debug(f'"{listing_query.id}" - Using user-agent: "{user_agent}"')
+
+    # mimic headers from Firefox 84.0
+    session.headers.update(
+        {
+            'User-Agent': user_agent,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Referer': 'https://www.amazon.com/',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'TE': 'Trailers'
+        }
+    )
+
+    logger.debug(f'"{listing_query.id}" - Querying endpoint: {url}')
+    response = session.get(url)
+
+    return handle_response(response)
+
+
+def get_item_top_level_feed(base_url, listing_query):
+
+    parse_object = urlparse(base_url)
+    domain = parse_object.netloc
+
+    title_strings = [domain, listing_query.id]
+
+    filters = []
+
+    if listing_query.min_price:
+        filters.append(f"min {listing_query.min_price}")
+
+    if listing_query.max_price:
+        filters.append(f"max {listing_query.max_price}")
+
+    if listing_query.buybox_only:
+        filters.append('buybox only')
+
+    if filters:
+        title_strings.append(f"filtered by {', '.join(filters)}")
+
+    output = {
+        'version': JSONFEED_VERSION_URL,
+        'title': ' - '.join(title_strings),
+        'home_page_url': base_url + '/gp/product/' + listing_query.id,
+        'favicon': base_url + '/favicon.ico'
+    }
+
+    return output
+
+
+def get_item_listing(listing_query, logger):
+    base_url = 'https://' + get_domain(listing_query.country)
+
+    item_url = base_url + '/gp/product/' + listing_query.id
+
+    response_body = get_listing_response(item_url, listing_query, logger)
+    response_soup = BeautifulSoup(response_body.text, features='html.parser')
+
+    item_id = listing_query.id
+
+    # select product title
+    item_title_soup = response_soup.select_one('span#productTitle')
+    item_title = item_title_soup.text.strip() if item_title_soup else ''
+
+    # select price in the buybox
+    item_price_soup = response_soup.select_one('span#price_inside_buybox')
+    item_price = item_price_soup.text.strip() if item_price_soup else None
+    item_price_text = item_price if item_price else 'N/A'
+
+    item_thumbnail_soup = response_soup.select_one('div#main-image-container')
+    item_thumbnail_img_soup = item_thumbnail_soup.select_one(
+        'img#landingImage')
+    item_thumbnail_url = item_thumbnail_img_soup.get(
+        'data-old-hires') if item_thumbnail_img_soup else None
+    item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" /><p>'
+
+    item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
+    item_add_to_cart_html = f'<a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
+
+    content_body = item_thumbnail_html + \
+        item_add_to_cart_html if item_thumbnail_url else item_thumbnail_html
+
+    sanitized_html = bleach.clean(
+        content_body,
+        tags=allowed_tags,
+        attributes=allowed_attributes
+    ).replace('&amp;', '&')  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
+
+    timestamp = datetime.now().timestamp()
+
+    item = {
+        'id': datetime.utcfromtimestamp(timestamp).isoformat('T'),
+        'url': item_url,
+        'title': f"[{item_price_text}] {item_title}",
+        'content_html': sanitized_html,
+        'image': item_thumbnail_url,
+        'date_published': datetime.utcfromtimestamp(timestamp).isoformat('T')
+    }
+
+    output = get_item_top_level_feed(base_url, listing_query)
+    output['items'] = [item]
 
     return output

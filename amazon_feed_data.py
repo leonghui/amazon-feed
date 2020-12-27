@@ -23,3 +23,13 @@ class _AmazonSearchFilter:
 class AmazonSearchQuery(_PriceFilter, _AmazonSearchFilter, _BaseSearchQuery):
     __slots__ = ['query', 'strict', 'country',
                  'buybox_only', 'min_price', 'max_price']
+
+
+@dataclass
+class _BaseItemListing:
+    id: str
+
+
+@dataclass
+class AmazonListQuery(_PriceFilter, _AmazonSearchFilter, _BaseItemListing):
+    __slots__ = ['id', 'country', 'buybox_only' 'min_price', 'max_price']
