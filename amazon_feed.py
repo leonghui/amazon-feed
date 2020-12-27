@@ -265,6 +265,17 @@ def get_item_listing(listing_query, logger):
 
     # select price in the buybox
     item_price_soup = response_soup.select_one('span#price_inside_buybox')
+    oos_soup = response_soup.select_one('div#outOfStock')
+    unqualified_buybox_soup = response_soup.select_one('div#unqualifiedBuyBox')
+
+    output = get_top_level_feed(base_url, listing_query)
+
+    # exit if unqualified buybox or out of stock
+    if unqualified_buybox_soup or oos_soup:
+        logger.info(f'"{listing_query.query}" - unqualified buybox or out of stock')
+        output['items'] = []
+        return output
+
     item_price = item_price_soup.text.strip() if item_price_soup else None
     item_price_text = item_price if item_price else 'N/A'
 
@@ -298,7 +309,6 @@ def get_item_listing(listing_query, logger):
         'date_published': datetime.utcfromtimestamp(timestamp).isoformat('T')
     }
 
-    output = get_top_level_feed(base_url, listing_query)
     output['items'] = [item]
 
     return output
