@@ -278,6 +278,8 @@ def get_item_listing(listing_query, logger):
 
     # select price in the buybox
     item_price_soup = response_soup.select_one('span#price_inside_buybox')
+    item_price = item_price_soup.text.strip() if item_price_soup else None
+
     oos_soup = response_soup.select_one('div#outOfStock')
     unqualified_buybox_soup = response_soup.select_one('div#unqualifiedBuyBox')
 
@@ -288,6 +290,15 @@ def get_item_listing(listing_query, logger):
         logger.info(
             f'"{listing_query.query}" - unqualified buybox or out of stock')
         return json_feed
+
+    # exit if exceeded max price
+    if item_price and listing_query.max_price:
+        item_price_clean = ''.join(filter(str.isnumeric, item_price))
+
+        if float(item_price_clean) > float(listing_query.max_price + '00'):
+            logger.info(
+                f'"{listing_query.query}" - exceeded max price')
+            return json_feed
 
     item_thumbnail_soup = response_soup.select_one('div#main-image-container')
     item_thumbnail_img_soup = item_thumbnail_soup.select_one(
