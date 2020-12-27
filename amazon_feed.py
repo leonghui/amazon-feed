@@ -236,7 +236,7 @@ def get_search_results(search_query, logger):
     for item_soup in results_soup:
         item_id = item_soup['data-asin']
 
-        # select product title, use wildcard CSS selector for better compatibility
+        # select product title, use wildcard CSS selector for better international compatibility
         item_title_soup = item_soup.select_one("[class*='s-line-clamp-']")
         item_title = item_title_soup.text.strip() if item_title_soup else ''
 
@@ -276,8 +276,8 @@ def get_item_listing(listing_query, logger):
     # select product title
     item_title_soup = response_soup.select_one('span#productTitle')
 
-    # select price in the buybox
-    item_price_soup = response_soup.select_one('span#price_inside_buybox')
+    # select price, use main price for better international compatibility
+    item_price_soup = response_soup.select_one('span#priceblock_ourprice')
     item_price = item_price_soup.text.strip() if item_price_soup else None
 
     oos_soup = response_soup.select_one('div#outOfStock')
@@ -295,9 +295,13 @@ def get_item_listing(listing_query, logger):
     if item_price and listing_query.max_price:
         item_price_clean = ''.join(filter(str.isnumeric, item_price))
 
-        if float(item_price_clean) > float(listing_query.max_price + '00'):
+        # handle currencies without decimal places
+        max_price_clean = listing_query.max_price + \
+            '00' if '.' in item_price else listing_query.max_price
+
+        if float(item_price_clean) > float(max_price_clean):
             logger.info(
-                f'"{listing_query.query}" - exceeded max price')
+                f'"{listing_query.query}" - exceeded max price {max_price_clean}')
             return json_feed
 
     item_thumbnail_soup = response_soup.select_one('div#main-image-container')
