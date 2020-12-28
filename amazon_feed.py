@@ -11,7 +11,6 @@ import random
 from bs4 import BeautifulSoup
 
 
-JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1.1'
 ITEM_QUANTITY = 1
 
 country_to_domain = {
@@ -172,7 +171,6 @@ def get_top_level_feed(base_url, query_object):
 
     json_feed = JsonFeedTopLevel(
         items=[],
-        version=JSONFEED_VERSION_URL,
         title=' - '.join(title_strings),
         home_page_url=home_page_url,
         favicon=base_url + '/favicon.ico'
