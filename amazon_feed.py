@@ -3,9 +3,10 @@ from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
+from requests import Session
+from requests.utils import cookiejar_from_dict, dict_from_cookiejar
 
 import bleach
-import requests
 import random
 from bs4 import BeautifulSoup
 
@@ -78,7 +79,7 @@ def get_random_user_agent():
 
 def get_response_soup(url, query_object, logger):
 
-    session = requests.Session()
+    session = Session()
     user_agent = get_random_user_agent()
     logger.debug(f'"{query_object.query}" - Using user-agent: "{user_agent}"')
 
