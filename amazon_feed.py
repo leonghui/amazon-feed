@@ -89,7 +89,7 @@ def get_response_soup(url, query_object, logger):
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': 'https://www.amazon.com/',
+            'Referer': 'https://' + get_domain(query_object.country, logger),
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'TE': 'Trailers'
