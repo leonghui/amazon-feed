@@ -42,7 +42,7 @@ def get_domain(country, logger):
     domain = country_to_domain.get(country)
 
     if not domain:
-        logger.warning(f'Undefined country "{country}", defaulting to US')
+        logger.info(f'Undefined country "{country}", defaulting to US')
 
     return domain if domain else country_to_domain.get('US')
 
