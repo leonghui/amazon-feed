@@ -185,21 +185,22 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
     item_price = item_price_soup.text.strip() if item_price_soup else None
     item_price_text = item_price if item_price else 'N/A'
 
-    item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" /><p>'
+    item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" />'
 
     item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
-    item_add_to_cart_html = f'<a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
+    item_add_to_cart_html = f'<p><a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
 
-    content_body = item_thumbnail_html + \
-        item_add_to_cart_html if item_thumbnail_url else item_thumbnail_html
+    timestamp = datetime.now().timestamp()
+    timestamp_html = f"<p>Last updated: {datetime.fromtimestamp(timestamp).strftime('%d %B %Y %I:%M%p')}</p>"
+
+    content_body = item_thumbnail_html + timestamp_html + \
+        item_add_to_cart_html if item_thumbnail_url else item_thumbnail_html + timestamp_html
 
     sanitized_html = bleach.clean(
         content_body,
         tags=allowed_tags,
         attributes=allowed_attributes
     ).replace('&amp;', '&')  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
-
-    timestamp = datetime.now().timestamp()
 
     feed_item = JsonFeedItem(
         id=datetime.utcfromtimestamp(timestamp).isoformat('T'),
