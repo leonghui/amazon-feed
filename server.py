@@ -3,11 +3,13 @@ from flask.logging import create_logger
 
 from amazon_feed import get_search_results, get_item_listing
 from amazon_feed_data import AmazonSearchQuery, AmazonListQuery, QueryStatus
+from mozilla_devices import get_phone_useragent_list
 
 
 app = Flask(__name__)
 app.config.update({'JSONIFY_MIMETYPE': 'application/feed+json'})
 logger = create_logger(app)
+useragent_list = get_phone_useragent_list(logger)
 
 
 def generate_response(query_object):
@@ -18,9 +20,9 @@ def generate_response(query_object):
     logger.debug(query_object)  # log values
 
     if isinstance(query_object, AmazonSearchQuery):
-        output = get_search_results(query_object, logger)
+        output = get_search_results(query_object, useragent_list, logger)
     elif isinstance(query_object, AmazonListQuery):
-        output = get_item_listing(query_object, logger)
+        output = get_item_listing(query_object, useragent_list, logger)
     return jsonify(output)
 
 
@@ -58,4 +60,4 @@ def process_listing():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', use_reloader=False)

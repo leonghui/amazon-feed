@@ -47,45 +47,14 @@ def get_domain(country, logger):
     return domain if domain else country_to_domain.get('US')
 
 
-def get_random_user_agent():
-
-    # from https://github.com/Kikobeats/top-user-agents/blob/master/index.json
-    user_agent_list = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:82.0) Gecko/20100101 Firefox/82.0",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64; rv:82.0) Gecko/20100101 Firefox/82.0",
-        "Mozilla/5.0 (Windows NT 10.0; rv:78.0) Gecko/20100101 Firefox/78.0",
-        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:82.0) Gecko/20100101 Firefox/82.0",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Safari/605.1.15",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.66 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:83.0) Gecko/20100101 Firefox/83.0",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.1 Safari/605.1.15",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:82.0) Gecko/20100101 Firefox/82.0",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.183 Safari/537.36",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36",
-        "Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0",
-        "Mozilla/5.0 (X11; Linux x86_64; rv:83.0) Gecko/20100101 Firefox/83.0",
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36"
-    ]
-
-    return random.choice(user_agent_list)
-
-
-def get_response_soup(url, query_object, logger):
+def get_response_soup(url, query_object, useragent_list, logger):
 
     session = Session()
-    user_agent = get_random_user_agent()
-    logger.debug(f'"{query_object.query}" - Using user-agent: "{user_agent}"')
+    user_agent = None
 
     # mimic headers from Firefox 84.0
     session.headers.update(
         {
-            'User-Agent': user_agent,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -96,8 +65,14 @@ def get_response_soup(url, query_object, logger):
         }
     )
 
+    if useragent_list:
+        user_agent = random.choice(useragent_list)
+        logger.debug(
+            f'"{query_object.query}" - Using user-agent: "{user_agent}"')
+
     logger.debug(f'"{query_object.query}" - Querying endpoint: {url}')
-    response = session.get(url)
+    response = session.get(
+        url, headers={'User-Agent': user_agent}) if user_agent else session.get(url)
 
     # return HTTP error code
     if not response.ok:
@@ -194,7 +169,7 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
     timestamp_html = f"<p>Last updated: {datetime.fromtimestamp(timestamp).strftime('%d %B %Y %I:%M%p')}</p>"
 
     content_body = item_thumbnail_html + timestamp_html + \
-        item_add_to_cart_html if item_thumbnail_url else item_thumbnail_html + timestamp_html
+        item_add_to_cart_html if item_thumbnail_url else item_add_to_cart_html + timestamp_html
 
     sanitized_html = bleach.clean(
         content_body,
@@ -214,12 +189,13 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
     return feed_item
 
 
-def get_search_results(search_query, logger):
-    base_url = f"https://{get_domain(search_query.country, logger)}"
+def get_search_results(search_query, useragent_list, logger):
+    base_url = 'https://' + get_domain(search_query.country, logger)
 
     search_url = get_search_url(base_url, search_query)
 
-    response_soup = get_response_soup(search_url, search_query, logger)
+    response_soup = get_response_soup(
+        search_url, search_query, useragent_list, logger)
 
     # select search results with "s-result-item" and "s-asin" class attributes
     results_soup = response_soup.select('.s-result-item.s-asin')
@@ -265,13 +241,14 @@ def get_search_results(search_query, logger):
     return json_feed
 
 
-def get_item_listing(listing_query, logger):
+def get_item_listing(listing_query, useragent_list, logger):
     base_url = 'https://' + get_domain(listing_query.country, logger)
 
     item_id = listing_query.query
     item_url = get_item_url(base_url, item_id)
 
-    response_soup = get_response_soup(item_url, listing_query, logger)
+    response_soup = get_response_soup(
+        item_url, listing_query, useragent_list, logger)
 
     # select product title
     item_title_soup = response_soup.select_one('span#productTitle')
@@ -304,11 +281,22 @@ def get_item_listing(listing_query, logger):
                 f'"{listing_query.query}" - exceeded max price {max_price_clean}')
             return json_feed
 
-    item_thumbnail_soup = response_soup.select_one('div#main-image-container')
-    item_thumbnail_img_soup = item_thumbnail_soup.select_one(
-        'img#landingImage')
-    item_thumbnail_url = item_thumbnail_img_soup.get(
-        'data-old-hires') if item_thumbnail_img_soup else None
+    item_thumbnail_url = None
+
+    desktop_thumbnail_soup = response_soup.select_one(
+        'div#main-image-container')
+    mobile_thumbnail_soup = response_soup.select_one('div#landing-image-wrapper')
+
+    if (desktop_thumbnail_soup):
+        item_thumbnail_img_soup = desktop_thumbnail_soup.select_one(
+            'img#landingImage')
+        item_thumbnail_url = item_thumbnail_img_soup.get(
+            'data-old-hires') if item_thumbnail_img_soup else None
+    elif (mobile_thumbnail_soup):
+        item_thumbnail_img_soup = mobile_thumbnail_soup.select_one(
+            'img#main-image')
+        item_thumbnail_url = item_thumbnail_img_soup.get(
+            'src') if item_thumbnail_img_soup else None
 
     feed_item = generate_item(
         base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
