@@ -3,13 +3,13 @@ from flask.logging import create_logger
 
 from amazon_feed import get_search_results, get_item_listing
 from amazon_feed_data import AmazonSearchQuery, AmazonListQuery, QueryStatus
-from mozilla_devices import get_phone_useragent_list
+from mozilla_devices import get_useragent_list, DeviceType
 
 
 app = Flask(__name__)
 app.config.update({'JSONIFY_MIMETYPE': 'application/feed+json'})
 logger = create_logger(app)
-useragent_list = get_phone_useragent_list(logger)
+useragent_list = get_useragent_list(DeviceType.PHONES, logger)
 
 
 def generate_response(query_object):
