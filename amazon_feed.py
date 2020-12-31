@@ -77,6 +77,8 @@ def get_response_soup(url, query_object, useragent_list, logger):
 
     # return HTTP error code
     if not response.ok:
+        logger.debug('Error from source, dumping input:')
+        logger.debug(response.text)
         abort(
             500, description=f"HTTP status from source: {response.status_code}")
 
@@ -262,10 +264,11 @@ def get_item_listing(listing_query, useragent_list, logger):
         item_url, listing_query, useragent_list, logger)
 
     # select product title
-    item_title_soup = response_soup.select_one('span#productTitle')
+    item_title_soup = response_soup.select_one('div#title_feature_div')
 
-    # select price, use main price for better international compatibility
-    item_price_soup = response_soup.select_one('span#priceblock_ourprice')
+    # select price, use both desktop and mobile selectors
+    item_price_soup = response_soup.select_one(
+        'span.priceBlockDealPriceString,span#priceblock_dealprice,span#priceblock_ourprice')
     item_price = item_price_soup.text.strip() if item_price_soup else None
 
     oos_soup = response_soup.select_one('div#outOfStock')
@@ -294,20 +297,16 @@ def get_item_listing(listing_query, useragent_list, logger):
 
     item_thumbnail_url = None
 
-    desktop_thumbnail_soup = response_soup.select_one(
-        'div#main-image-container')
-    mobile_thumbnail_soup = response_soup.select_one('div#landing-image-wrapper')
+    item_thumbnail_img_soup = response_soup.select_one(
+        'div#main-image-container img#landingImage,div#landing-image-wrapper img#main-image')
 
-    if (desktop_thumbnail_soup):
-        item_thumbnail_img_soup = desktop_thumbnail_soup.select_one(
-            'img#landingImage')
-        item_thumbnail_url = item_thumbnail_img_soup.get(
-            'data-old-hires') if item_thumbnail_img_soup else None
-    elif (mobile_thumbnail_soup):
-        item_thumbnail_img_soup = mobile_thumbnail_soup.select_one(
-            'img#main-image')
-        item_thumbnail_url = item_thumbnail_img_soup.get(
-            'src') if item_thumbnail_img_soup else None
+    # "src" contains image embedded as data uri when queried without JS, use "data-old-hires" if available
+    if item_thumbnail_img_soup.has_attr('data-old-hires'):
+        item_thumbnail_url = item_thumbnail_img_soup.get('data-old-hires')
+    elif item_thumbnail_img_soup.has_attr('src'):
+        item_thumbnail_url = item_thumbnail_img_soup.get('src')
+    else:
+        logger.info(f'"{listing_query.query}" - thumbnail not found')
 
     feed_item = generate_item(
         base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
