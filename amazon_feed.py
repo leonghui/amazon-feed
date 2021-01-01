@@ -38,6 +38,21 @@ allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
 
+session = Session()
+user_agent = None
+
+# mimic headers from Firefox 84.0
+session.headers.update(
+    {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'TE': 'Trailers'
+    }
+)
+
 
 def get_domain(country, logger):
     domain = country_to_domain.get(country)
@@ -49,31 +64,21 @@ def get_domain(country, logger):
 
 
 def get_response_soup(url, query_object, useragent_list, logger):
+    global user_agent
 
-    session = Session()
-    user_agent = None
+    referer = 'https://' + get_domain(query_object.country, logger)
+    headers = {'Referer': referer}
 
-    # mimic headers from Firefox 84.0
-    session.headers.update(
-        {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': 'https://' + get_domain(query_object.country, logger),
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'TE': 'Trailers'
-        }
-    )
-
-    if useragent_list:
+    if useragent_list and not user_agent:
         user_agent = random.choice(useragent_list)
         logger.debug(
             f'"{query_object.query}" - Using user-agent: "{user_agent}"')
 
+    if user_agent:
+        headers['User-Agent'] = user_agent
+
     logger.debug(f'"{query_object.query}" - Querying endpoint: {url}')
-    response = session.get(
-        url, headers={'User-Agent': user_agent}) if user_agent else session.get(url)
+    response = session.get(url, headers=headers)
 
     # return HTTP error code
     if not response.ok:
