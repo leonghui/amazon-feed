@@ -165,14 +165,21 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
 
     item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" />'
 
-    item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
-    item_add_to_cart_html = f'<p><a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
-
     timestamp = datetime.now().timestamp()
     timestamp_html = f"<p>Last updated: {datetime.fromtimestamp(timestamp).strftime('%d %B %Y %I:%M%p')}</p>"
 
-    content_body = item_thumbnail_html + timestamp_html + \
-        item_add_to_cart_html if item_thumbnail_url else item_add_to_cart_html + timestamp_html
+    item_link_url = get_item_url(base_url, item_id)
+    item_link_html = f'<p><a href=\"{item_link_url}\">Product Link</a></p>'
+
+    item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
+    item_add_to_cart_html = f'<p><a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
+
+    content_body_list = [timestamp_html, item_link_html, item_add_to_cart_html]
+
+    if item_thumbnail_url:
+        content_body_list.insert(0, item_thumbnail_html)
+
+    content_body = ''.join(content_body_list)
 
     sanitized_html = bleach.clean(
         content_body,
@@ -182,7 +189,7 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
 
     feed_item = JsonFeedItem(
         id=datetime.utcfromtimestamp(timestamp).isoformat('T'),
-        url=get_item_url(base_url, item_id),
+        url=item_link_url,
         title=f"[{item_price_text}] {item_title}",
         content_html=sanitized_html,
         image=item_thumbnail_url,
@@ -271,15 +278,18 @@ def get_item_listing(listing_query, useragent_list, logger):
         'span.priceBlockDealPriceString,span#priceblock_dealprice,span#priceblock_ourprice')
     item_price = item_price_soup.text.strip() if item_price_soup else None
 
-    oos_soup = response_soup.select_one('div#outOfStock')
-    unqualified_buybox_soup = response_soup.select_one('div#unqualifiedBuyBox')
+    # detect conditions where price is not found in the buybox
+    # - out of stock
+    # - unqualified buybox (supressed buy now price)
+    # - partial buybox (size/type must be selected manually)
+    missing_price_soup = response_soup.select_one(
+        'div#outOfStock,div#unqualifiedBuyBox,div#partialStateBuybox')
 
     json_feed = get_top_level_feed(base_url, listing_query)
 
-    # exit if unqualified buybox or out of stock
-    if unqualified_buybox_soup or oos_soup:
+    if missing_price_soup:
         logger.info(
-            f'"{listing_query.query}" - unqualified buybox or out of stock')
+            f'"{listing_query.query}" - price not found in the buybox')
         return json_feed
 
     # exit if exceeded max price
