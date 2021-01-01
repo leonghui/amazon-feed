@@ -66,7 +66,8 @@ def get_domain(country, logger):
 def get_response_soup(url, query_object, useragent_list, logger):
     global user_agent
 
-    referer = 'https://' + get_domain(query_object.country, logger)
+    domain = 'get_domain(query_object.country, logger)'
+    referer = 'https://' + domain + '/'
     headers = {'Referer': referer}
 
     if useragent_list and not user_agent:
@@ -82,6 +83,7 @@ def get_response_soup(url, query_object, useragent_list, logger):
 
     # return HTTP error code
     if not response.ok:
+        user_agent = None
         logger.debug('Error from source, dumping input:')
         logger.debug(response.text)
         abort(
@@ -90,6 +92,7 @@ def get_response_soup(url, query_object, useragent_list, logger):
     response_soup = BeautifulSoup(response.text, features='html.parser')
 
     if response_soup.find(id='captchacharacters'):
+        user_agent = None
         logger.warning(f'{query_object.query} - Captcha triggered')
         abort(429, description='Captcha triggered')
 
