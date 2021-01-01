@@ -318,11 +318,11 @@ def get_item_listing(listing_query, useragent_list, logger):
     item_thumbnail_img_soup = response_soup.select_one(
         'div#main-image-container img#landingImage,div#landing-image-wrapper img#main-image')
 
-    # "src" contains image embedded as data uri when queried without JS, use "data-old-hires" if available
-    if item_thumbnail_img_soup.has_attr('data-old-hires'):
-        item_thumbnail_url = item_thumbnail_img_soup.get('data-old-hires')
-    elif item_thumbnail_img_soup.has_attr('src'):
-        item_thumbnail_url = item_thumbnail_img_soup.get('src')
+    # prefer "src" least because it contains image embedded as data uri when queried without JS
+    if item_thumbnail_img_soup:
+        item_thumbnail_url_list = [item_thumbnail_img_soup.get(attr) for attr in [
+            'data-a-hires', 'data-old-hires', 'src'] if item_thumbnail_img_soup.has_attr(attr)]
+        item_thumbnail_url = item_thumbnail_url_list[0]
     else:
         logger.info(f'"{listing_query.query}" - thumbnail not found')
 
