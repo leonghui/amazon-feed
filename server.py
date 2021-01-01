@@ -37,8 +37,13 @@ def process_query():
     strict = request.args.get('strict')
 
     search_query = AmazonSearchQuery(
-        QueryStatus(ok=True, errors=[]),
-        query, country, min_price, max_price, buybox_only, strict
+        query=query,
+        country=country,
+        min_price=min_price,
+        max_price=max_price,
+        buybox_only=buybox_only,
+        strict=strict,
+        status=QueryStatus()
     )
 
     return generate_response(search_query)
@@ -52,8 +57,11 @@ def process_listing():
     max_price = request.args.get('max_price')
 
     list_query = AmazonListQuery(
-        QueryStatus(ok=True, errors=[]),
-        query, country, min_price, max_price
+        query=query,
+        country=country,
+        min_price=min_price,
+        max_price=max_price,
+        status=QueryStatus()
     )
 
     return generate_response(list_query)

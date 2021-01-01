@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 def string_to_boolean(string):
@@ -7,17 +7,20 @@ def string_to_boolean(string):
 
 @dataclass
 class QueryStatus():
-    ok: bool
-    errors: list[str]
+    ok: bool = True
+    errors: list[str] = field(default_factory=list)
+
+    def refresh(self):
+        self.ok = False if self.errors else True
 
 
 @dataclass
 class _BaseQuery():
+    query: str
     status: QueryStatus
-    query: str = None
     country: str = 'US'
 
-    def validateCountry(self):
+    def validate_country(self):
         if self.country:
             if not self.country.isalpha() or len(self.country) != 2:
                 self.status.errors.append('Invalid country code')
@@ -32,7 +35,7 @@ class _PriceFilter():
 
 @dataclass
 class _BaseQueryWithPriceFilter(_PriceFilter, _BaseQuery):
-    def validatePriceFilters(self):
+    def validate_price_filters(self):
         if self.max_price and not self.max_price.isnumeric():
             self.status.errors.append('Invalid max price')
 
@@ -45,7 +48,7 @@ class _AmazonSearchFilter:
     buybox_only: bool = False
     strict: bool = False
 
-    def validateAmazonSearchFilters(self):
+    def validate_amazon_search_filters(self):
         if self.buybox_only:
             self.buybox_only = string_to_boolean(self.buybox_only)
         if self.strict:
@@ -58,15 +61,13 @@ class AmazonSearchQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
                  'max_price', 'buybox_only', 'strict']
 
     def __post_init__(self):
-        self.validateCountry()
-        self.validatePriceFilters()
-        self.validateAmazonSearchFilters()
-
         if not isinstance(self.query, str):
             self.status.errors.append('Invalid query')
 
-        if self.status.errors:
-            self.status.ok = False
+        self.validate_country()
+        self.validate_price_filters()
+        self.validate_amazon_search_filters()
+        self.status.refresh()
 
 
 @dataclass
@@ -74,11 +75,9 @@ class AmazonListQuery(_BaseQueryWithPriceFilter):
     __slots__ = ['query', 'country', 'min_price', 'max_price']
 
     def __post_init__(self):
-        super().validateCountry()
-        super().validatePriceFilters()
-
         if not isinstance(self.query, str):
-            self.status.errors.append('Invalid ASIN')
+            self.status.errors.append('Invalid id (ASIN)')
 
-        if self.status.errors:
-            self.status.ok = False
+        self.validate_country()
+        self.validate_price_filters()
+        self.status.refresh()
