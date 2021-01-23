@@ -133,17 +133,15 @@ def get_response_dict(url, query_object, useragent_list, logger):
     # return HTTP error code
     if not response.ok:
         user_agent = None
-        logger.error(query_object.query + ' - error from source')
-        logger.debug(query_object.query + ' - dumping input:' + response.text)
-        abort(
-            500, description='HTTP status from source: ' + str(response.status_code))
-
-    # response_soup = BeautifulSoup(response.text, features='html.parser')
-
-    # if response_soup.find(id='captchacharacters'):
-    #     user_agent = None
-    #     logger.warning(f'{query_object.query} - Captcha triggered')
-    #     abort(429, description='Captcha triggered')
+        if response.status_code == 503:
+            logger.warning(query_object.query + ' - API paywall triggered')
+            abort(503, description='API paywall triggered')
+        else:
+            logger.error(query_object.query + ' - error from source')
+            logger.debug(query_object.query +
+                         ' - dumping input:' + response.text)
+            abort(
+                500, description='HTTP status from source: ' + str(response.status_code))
 
     # Each "application/json-amazonui-streaming" payload is a triple:
     # ["dispatch",
