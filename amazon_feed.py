@@ -291,18 +291,10 @@ def get_item_listing(listing_query, useragent_list, logger):
         'span.priceBlockDealPriceString,span#priceblock_dealprice,span#priceblock_ourprice')
     item_price = item_price_soup.text.strip() if item_price_soup else None
 
-    # detect conditions where price is not found in the buybox
-    # - out of stock
-    # - unqualified buybox (supressed buy now price)
-    # - partial buybox (size/type must be selected manually)
-    missing_price_soup = response_soup.select_one(
-        'div#outOfStock,div#unqualifiedBuyBox,div#partialStateBuybox')
-
     json_feed = get_top_level_feed(base_url, listing_query)
 
-    if missing_price_soup:
-        logger.info(
-            f'"{listing_query.query}" - price not found in the buybox')
+    if not(item_price):
+        logger.info(listing_query.query + ' - price not found')
         return json_feed
 
     # exit if exceeded max price
