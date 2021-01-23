@@ -66,7 +66,7 @@ def get_domain(country, logger):
 def get_response_soup(url, query_object, useragent_list, logger):
     global user_agent
 
-    domain = 'get_domain(query_object.country, logger)'
+    domain = get_domain(query_object.country, logger)
     referer = 'https://' + domain + '/'
     headers = {'Referer': referer}
 
@@ -79,7 +79,12 @@ def get_response_soup(url, query_object, useragent_list, logger):
         headers['User-Agent'] = user_agent
 
     logger.debug(f'"{query_object.query}" - Querying endpoint: {url}')
-    response = session.get(url, headers=headers)
+
+    try:
+        response = session.get(url, headers=headers)
+    except Exception as ex:
+        logger.debug('Exception:' + ex)
+        abort(500, description=ex)
 
     # return HTTP error code
     if not response.ok:
