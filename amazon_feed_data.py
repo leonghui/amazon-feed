@@ -45,12 +45,9 @@ class _BaseQueryWithPriceFilter(_PriceFilter, _BaseQuery):
 
 @dataclass
 class _AmazonSearchFilter:
-    buybox_only: bool = False
     strict: bool = False
 
     def validate_amazon_search_filters(self):
-        if self.buybox_only:
-            self.buybox_only = string_to_boolean(self.buybox_only)
         if self.strict:
             self.strict = string_to_boolean(self.strict)
 
@@ -58,7 +55,7 @@ class _AmazonSearchFilter:
 @dataclass
 class AmazonSearchQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
     __slots__ = ['query', 'country', 'min_price',
-                 'max_price', 'buybox_only', 'strict']
+                 'max_price', 'strict']
 
     def __post_init__(self):
         if not isinstance(self.query, str):

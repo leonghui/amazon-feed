@@ -33,7 +33,6 @@ def process_query():
     country = request.args.get('country')
     min_price = request.args.get('min_price')
     max_price = request.args.get('max_price')
-    buybox_only = request.args.get('buybox_only')
     strict = request.args.get('strict')
 
     search_query = AmazonSearchQuery(
@@ -41,7 +40,6 @@ def process_query():
         country=country,
         min_price=min_price,
         max_price=max_price,
-        buybox_only=buybox_only,
         strict=strict,
         status=QueryStatus()
     )

@@ -208,8 +208,6 @@ def get_top_level_feed(base_url, query_object):
 
     if isinstance(query_object, AmazonSearchQuery):
         home_page_url = get_search_url(base_url, query_object)
-        if query_object.buybox_only:
-            filters.append('buybox only')
 
         if query_object.strict:
             filters.append('strict')
@@ -243,7 +241,7 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
     item_price_text = item_price if item_price else 'N/A'
 
     # reformat discounted price
-    if item_price_soup.select_one('span.price-large'):
+    if item_price_soup and item_price_soup.select_one('span.price-large'):
         price_strings = list(item_price_soup.stripped_strings)
         item_price_text = price_strings[0] + \
             price_strings[1] + '.' + price_strings[2]
@@ -321,16 +319,14 @@ def get_search_results(search_query, useragent_list, logger):
         item_thumbnail_url = item_thumbnail_img_soup.get(
             'src') if item_thumbnail_img_soup else None
 
-        if search_query.buybox_only and not item_price_soup:
-            logger.debug(
-                f'"{search_query.query}" - buybox only - removed {item_id} "{item_title}"')
-        elif search_query.strict and (term_list and not all(item_title.lower().find(term) >= 0 for term in term_list)):
-            logger.debug(
-                f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
-        else:
-            feed_item = generate_item(
-                base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
-            json_feed.items.append(feed_item)
+        if item_price_soup:
+            if search_query.strict and (term_list and not all(item_title.lower().find(term) >= 0 for term in term_list)):
+                logger.debug(
+                    f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
+            else:
+                feed_item = generate_item(
+                    base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
+                json_feed.items.append(feed_item)
 
     logger.info(
         f'"{search_query.query}" - found {results_count} - published {len(json_feed.items)}')
