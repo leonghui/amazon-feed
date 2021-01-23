@@ -89,10 +89,10 @@ def get_response_soup(url, query_object, useragent_list, logger):
     # return HTTP error code
     if not response.ok:
         user_agent = None
-        logger.debug('Error from source, dumping input:')
-        logger.debug(response.text)
+        logger.error(query_object.query + ' - error from source')
+        logger.debug(query_object.query + ' - dumping input:' + response.text)
         abort(
-            500, description=f"HTTP status from source: {response.status_code}")
+            500, description='HTTP status from source: ' + str(response.status_code))
 
     response_soup = BeautifulSoup(response.text, features='html.parser')
 
