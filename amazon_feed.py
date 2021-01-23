@@ -176,6 +176,12 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
     item_price = item_price_soup.text.strip() if item_price_soup else None
     item_price_text = item_price if item_price else 'N/A'
 
+    # reformat discounted price
+    if item_price_soup.select_one('span.price-large'):
+        price_strings = list(item_price_soup.stripped_strings)
+        item_price_text = price_strings[0] + \
+            price_strings[1] + '.' + price_strings[2]
+
     item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" />'
 
     timestamp = datetime.now().timestamp()
@@ -287,8 +293,13 @@ def get_item_listing(listing_query, useragent_list, logger):
     item_title_soup = response_soup.select_one('div#title_feature_div')
 
     # select price, use both desktop and mobile selectors
-    item_price_soup = response_soup.select_one(
-        'span.priceBlockDealPriceString,span#priceblock_dealprice,span#priceblock_ourprice')
+    item_price_soup = response_soup.select_one('''
+        div#newPitchPriceWrapper_feature_div,
+        span.priceBlockDealPriceString,
+        span#priceblock_dealprice,
+        span#priceblock_ourprice
+    ''')
+
     item_price = item_price_soup.text.strip() if item_price_soup else None
 
     json_feed = get_top_level_feed(base_url, listing_query)
