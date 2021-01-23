@@ -9,6 +9,7 @@ from dataclasses import asdict
 
 import bleach
 import random
+import json
 from bs4 import BeautifulSoup
 
 
@@ -37,6 +38,7 @@ country_to_domain = {
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
+STREAM_DELIMITER = '&&&'    # application/json-amazonui-streaming
 
 session = Session()
 user_agent = None
@@ -44,12 +46,13 @@ user_agent = None
 # mimic headers from Firefox 84.0
 session.headers.update(
     {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,*/*',
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate, br',
+        'X-Requested-With': 'XMLHttpRequest',
         'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'TE': 'Trailers'
+        'Content-Type': 'application/json',
+        'TE': 'Trailers',
     }
 )
 
@@ -104,8 +107,71 @@ def get_response_soup(url, query_object, useragent_list, logger):
     return response_soup
 
 
+def get_response_dict(url, query_object, useragent_list, logger):
+    global user_agent
+
+    domain = get_domain(query_object.country, logger)
+    referer = 'https://' + domain + '/'
+    headers = {'Referer': referer}
+
+    if useragent_list and not user_agent:
+        user_agent = random.choice(useragent_list)
+        logger.debug(
+            f'"{query_object.query}" - Using user-agent: "{user_agent}"')
+
+    if user_agent:
+        headers['User-Agent'] = user_agent
+
+    logger.debug(f'"{query_object.query}" - Querying endpoint: {url}')
+
+    try:
+        response = session.post(url, headers=headers)
+    except Exception as ex:
+        logger.debug('Exception:' + ex)
+        abort(500, description=ex)
+
+    # return HTTP error code
+    if not response.ok:
+        user_agent = None
+        logger.error(query_object.query + ' - error from source')
+        logger.debug(query_object.query + ' - dumping input:' + response.text)
+        abort(
+            500, description='HTTP status from source: ' + str(response.status_code))
+
+    # response_soup = BeautifulSoup(response.text, features='html.parser')
+
+    # if response_soup.find(id='captchacharacters'):
+    #     user_agent = None
+    #     logger.warning(f'{query_object.query} - Captcha triggered')
+    #     abort(429, description='Captcha triggered')
+
+    # Each "application/json-amazonui-streaming" payload is a triple:
+    # ["dispatch",
+    #  "data-main-slot:search-result-2",
+    #  {
+    #      "html": ...,
+    #      "asin": "B00TSUGXKE",
+    #      "index": 2
+    #  }]
+
+    # split streamed payload and store as a list
+    json_list_str = response.text.split(STREAM_DELIMITER)
+
+    # remove last triple if empty
+    if len(json_list_str[-1]) == 1:
+        del json_list_str[-1]
+
+    # decode each payload and store as a nested list
+    json_nested_list = [json.loads(_str) for _str in json_list_str]
+
+    # convert payload to dict using 2nd and 3rd elements as key-value pairs
+    json_dict = {_list[1]: _list[2] for _list in json_nested_list}
+
+    return json_dict
+
+
 def get_search_url(base_url, query_object):
-    search_uri = f"{base_url}/s?"
+    search_uri = f"{base_url}/s/query?"
 
     search_dict = {'k': quote_plus(query_object.query)}
 
@@ -223,23 +289,25 @@ def get_search_results(search_query, useragent_list, logger):
 
     search_url = get_search_url(base_url, search_query)
 
-    response_soup = get_response_soup(
+    json_dict = get_response_dict(
         search_url, search_query, useragent_list, logger)
 
-    # select search results with "s-result-item" and "s-asin" class attributes
-    results_soup = response_soup.select('.s-result-item.s-asin')
+    results_dict = {k: v for k, v in json_dict.items() if k.startswith(
+        'data-main-slot:search-result-')}
+
+    json_feed = get_top_level_feed(base_url, search_query)
 
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query.split()])
         logger.debug(
             f'"{search_query.query}" - strict mode enabled, title must contain: {term_list}')
 
-    results_count = len(results_soup)
+    results_count = json_dict.get(
+        'data-search-metadata').get('metadata').get('totalResultCount')
 
-    json_feed = get_top_level_feed(base_url, search_query)
-
-    for item_soup in results_soup:
-        item_id = item_soup['data-asin']
+    for result in results_dict.values():
+        item_id = result.get('asin')
+        item_soup = BeautifulSoup(result.get('html'), features='html.parser')
 
         # select product title, use wildcard CSS selector for better international compatibility
         item_title_soup = item_soup.select_one("[class*='s-line-clamp-']")
