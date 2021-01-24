@@ -207,17 +207,8 @@ def get_top_level_feed(base_url, query_object):
     return json_feed
 
 
-def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url):
-    item_title = item_title_soup.text.strip() if item_title_soup else ''
-
-    item_price = item_price_soup.text.strip() if item_price_soup else None
-    item_price_text = item_price if item_price else 'N/A'
-
-    # reformat discounted price
-    if item_price_soup and item_price_soup.select_one('span.price-large'):
-        price_strings = list(item_price_soup.stripped_strings)
-        item_price_text = price_strings[0] + \
-            price_strings[1] + '.' + price_strings[2]
+def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail_url):
+    item_title_text = item_title.strip() if item_title else item_id
 
     item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" />'
 
@@ -246,7 +237,7 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
     feed_item = JsonFeedItem(
         id=datetime.utcfromtimestamp(timestamp).isoformat('T'),
         url=item_link_url,
-        title=f"[{item_price_text}] {item_title}",
+        title=f"[{item_price_text}] {item_title_text}",
         content_html=sanitized_html,
         image=item_thumbnail_url,
         date_published=datetime.utcfromtimestamp(timestamp).isoformat('T')
@@ -285,6 +276,14 @@ def get_search_results(search_query, useragent_list, logger):
         item_title = item_title_soup.text.strip() if item_title_soup else ''
 
         item_price_soup = item_soup.select_one('.a-price .a-offscreen')
+        item_price = item_price_soup.text.strip() if item_price_soup else None
+        item_price_text = item_price if item_price else 'N/A'
+
+        # reformat discounted price
+        if item_price_soup and item_price_soup.select_one('span.price-large'):
+            price_strings = list(item_price_soup.stripped_strings)
+            item_price_text = price_strings[0] + \
+                price_strings[1] + '.' + price_strings[2]
 
         item_thumbnail_soup = item_soup.find(
             attrs={'data-component-type': 's-product-image'})
@@ -298,7 +297,7 @@ def get_search_results(search_query, useragent_list, logger):
                     f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
             else:
                 feed_item = generate_item(
-                    base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
+                    base_url, item_id, item_title, item_price_text, item_thumbnail_url)
                 json_feed.items.append(feed_item)
 
     logger.info(
