@@ -122,6 +122,8 @@ def get_response_dict(url, query_object, useragent_list, logger):
     #  }]
 
     # split streamed payload and store as a list
+    if STREAM_DELIMITER in response.text:
+
     json_list_str = response.text.split(STREAM_DELIMITER)
 
     # remove last triple if empty
@@ -135,6 +137,8 @@ def get_response_dict(url, query_object, useragent_list, logger):
     json_dict = {_list[1]: _list[2] for _list in json_nested_list}
 
     return json_dict
+    else:
+        return response.json()
 
 
 def get_search_url(base_url, query_object):
