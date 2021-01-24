@@ -102,8 +102,8 @@ def get_response_dict(url, query_object, useragent_list, logger):
         return response.json()
 
 
-def get_search_url(base_url, query_object):
-    search_uri = f"{base_url}/s/query?"
+def get_search_url(base_url, query_object, is_xhr=False):
+    search_uri = f"{base_url}/s/query?" if is_xhr else f"{base_url}/s?"
 
     search_dict = {'k': quote_plus(query_object.query)}
 
@@ -208,7 +208,7 @@ def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail
 def get_search_results(search_query, useragent_list, logger):
     base_url = 'https://' + search_query.locale.domain
 
-    search_url = get_search_url(base_url, search_query)
+    search_url = get_search_url(base_url, search_query, is_xhr=True)
 
     json_dict = get_response_dict(
         search_url, search_query, useragent_list, logger)
