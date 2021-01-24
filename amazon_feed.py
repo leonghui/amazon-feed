@@ -86,17 +86,17 @@ def get_response_dict(url, query_object, useragent_list, logger):
     if useragent_list and not user_agent:
         user_agent = random.choice(useragent_list)
         logger.debug(
-            f'"{query_object.query}" - Using user-agent: "{user_agent}"')
+            f'"{query_object.query}" - using user-agent: "{user_agent}"')
 
     if user_agent:
         headers['User-Agent'] = user_agent
 
-    logger.debug(f'"{query_object.query}" - Querying endpoint: {url}')
+    logger.debug(f'"{query_object.query}" - querying endpoint: {url}')
 
     try:
         response = session.post(url, headers=headers)
     except Exception as ex:
-        logger.debug('Exception:' + ex)
+        logger.error(f'"{query_object.query}" - exception: {ex}')
         abort(500, description=ex)
 
     # return HTTP error code
@@ -106,11 +106,11 @@ def get_response_dict(url, query_object, useragent_list, logger):
             logger.warning(query_object.query + ' - API paywall triggered')
             abort(503, description='API paywall triggered')
         else:
-            logger.error(query_object.query + ' - error from source')
-            logger.debug(query_object.query +
-                         ' - dumping input:' + response.text)
+            logger.error(f'"{query_object.query}" - error from source')
+            logger.debug(
+                f'"{query_object.query}" - dumping input: {response.text}')
             abort(
-                500, description='HTTP status from source: ' + str(response.status_code))
+                500, description=f"HTTP status from source: {response.status_code}")
 
     # Each "application/json-amazonui-streaming" payload is a triple:
     # ["dispatch",
