@@ -1,5 +1,5 @@
 from datetime import datetime
-from amazon_feed_data import AmazonSearchQuery, AmazonListQuery, get_amazon_domain
+from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
@@ -81,8 +81,7 @@ def get_response_soup(url, query_object, useragent_list, logger):
 def get_response_dict(url, query_object, useragent_list, logger):
     global user_agent
 
-    domain = get_amazon_domain(query_object.country, logger)
-    referer = 'https://' + domain + '/'
+    referer = 'https://' + query_object.locale.domain + '/'
     headers = {'Referer': referer}
 
     if useragent_list and not user_agent:
@@ -247,7 +246,7 @@ def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail
 
 
 def get_search_results(search_query, useragent_list, logger):
-    base_url = 'https://' + get_amazon_domain(search_query.country, logger)
+    base_url = 'https://' + search_query.locale.domain
 
     search_url = get_search_url(base_url, search_query)
 
