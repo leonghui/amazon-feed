@@ -315,7 +315,7 @@ def get_item_listing(listing_query, useragent_list, logger):
 
         if float(item_price_clean) > float(max_price_clean):
             logger.info(
-                f'"{listing_query.query}" - exceeded max price {max_price_clean}')
+                f'"{listing_query.query}" - exceeded max price {listing_query.max_price}')
             return json_feed
 
     feed_item = generate_item(base_url, item_id, None, item_price, None)
