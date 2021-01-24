@@ -1,5 +1,34 @@
 from dataclasses import dataclass, field
 
+country_to_domain = {
+    'AU': 'www.amazon.com.au',
+    'BR': 'www.amazon.com.br',
+    'CA': 'www.amazon.ca',
+    'CN': 'www.amazon.cn',
+    'FR': 'www.amazon.fr',
+    'DE': 'www.amazon.de',
+    'IN': 'www.amazon.in',
+    'IT': 'www.amazon.it',
+    'JP': 'www.amazon.co.jp',
+    'MX': 'www.amazon.com.mx',
+    'NL': 'www.amazon.nl',
+    'ES': 'www.amazon.es',
+    'TR': 'www.amazon.com.tr',
+    'AE': 'www.amazon.ae',
+    'SG': 'www.amazon.sg',
+    'UK': 'www.amazon.co.uk',
+    'US': 'www.amazon.com'
+}
+
+
+def get_amazon_domain(country, logger):
+    domain = country_to_domain.get(country)
+
+    if not domain:
+        logger.info(f'Undefined country "{country}", defaulting to US')
+
+    return domain if domain else country_to_domain.get('US')
+
 
 def string_to_boolean(string):
     return string.lower().strip() in ['yes', 'true']

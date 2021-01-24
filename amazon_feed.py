@@ -1,5 +1,5 @@
 from datetime import datetime
-from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
+from amazon_feed_data import AmazonSearchQuery, AmazonListQuery, get_amazon_domain
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
@@ -14,26 +14,6 @@ from bs4 import BeautifulSoup
 
 
 ITEM_QUANTITY = 1
-
-country_to_domain = {
-    'AU': 'www.amazon.com.au',
-    'BR': 'www.amazon.com.br',
-    'CA': 'www.amazon.ca',
-    'CN': 'www.amazon.cn',
-    'FR': 'www.amazon.fr',
-    'DE': 'www.amazon.de',
-    'IN': 'www.amazon.in',
-    'IT': 'www.amazon.it',
-    'JP': 'www.amazon.co.jp',
-    'MX': 'www.amazon.com.mx',
-    'NL': 'www.amazon.nl',
-    'ES': 'www.amazon.es',
-    'TR': 'www.amazon.com.tr',
-    'AE': 'www.amazon.ae',
-    'SG': 'www.amazon.sg',
-    'UK': 'www.amazon.co.uk',
-    'US': 'www.amazon.com'
-}
 
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
@@ -57,19 +37,10 @@ session.headers.update(
 )
 
 
-def get_domain(country, logger):
-    domain = country_to_domain.get(country)
-
-    if not domain:
-        logger.info(f'Undefined country "{country}", defaulting to US')
-
-    return domain if domain else country_to_domain.get('US')
-
-
 def get_response_soup(url, query_object, useragent_list, logger):
     global user_agent
 
-    domain = get_domain(query_object.country, logger)
+    domain = get_amazon_domain(query_object.country, logger)
     referer = 'https://' + domain + '/'
     headers = {'Referer': referer}
 
@@ -110,7 +81,7 @@ def get_response_soup(url, query_object, useragent_list, logger):
 def get_response_dict(url, query_object, useragent_list, logger):
     global user_agent
 
-    domain = get_domain(query_object.country, logger)
+    domain = get_amazon_domain(query_object.country, logger)
     referer = 'https://' + domain + '/'
     headers = {'Referer': referer}
 
@@ -281,7 +252,7 @@ def generate_item(base_url, item_id, item_title_soup, item_price_soup, item_thum
 
 
 def get_search_results(search_query, useragent_list, logger):
-    base_url = 'https://' + get_domain(search_query.country, logger)
+    base_url = 'https://' + get_amazon_domain(search_query.country, logger)
 
     search_url = get_search_url(base_url, search_query)
 
@@ -343,7 +314,7 @@ def remove_empty_from_dict(d):
 
 
 def get_item_listing(listing_query, useragent_list, logger):
-    base_url = 'https://' + get_domain(listing_query.country, logger)
+    base_url = 'https://' + get_amazon_domain(listing_query.country, logger)
 
     item_id = listing_query.query
     item_url = get_item_url(base_url, item_id)
