@@ -31,6 +31,8 @@ session.headers.update(
         'Connection': 'keep-alive',
         'Content-Type': 'application/json',
         'TE': 'Trailers',
+        'Cache-Control': 'max-age=0, no-cache',
+        'Pragma': 'no-cache'
     }
 )
 
