@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 
 
 ITEM_QUANTITY = 1
+RETRY_COUNT = 5
 
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
@@ -35,47 +36,6 @@ session.headers.update(
         'Pragma': 'no-cache'
     }
 )
-
-
-def get_response_soup(url, query_object, useragent_list, logger):
-    global user_agent
-
-    domain = get_amazon_domain(query_object.country, logger)
-    referer = 'https://' + domain + '/'
-    headers = {'Referer': referer}
-
-    if useragent_list and not user_agent:
-        user_agent = random.choice(useragent_list)
-        logger.debug(
-            f'"{query_object.query}" - Using user-agent: "{user_agent}"')
-
-    if user_agent:
-        headers['User-Agent'] = user_agent
-
-    logger.debug(f'"{query_object.query}" - Querying endpoint: {url}')
-
-    try:
-        response = session.get(url, headers=headers)
-    except Exception as ex:
-        logger.debug('Exception:' + ex)
-        abort(500, description=ex)
-
-    # return HTTP error code
-    if not response.ok:
-        user_agent = None
-        logger.error(query_object.query + ' - error from source')
-        logger.debug(query_object.query + ' - dumping input:' + response.text)
-        abort(
-            500, description='HTTP status from source: ' + str(response.status_code))
-
-    response_soup = BeautifulSoup(response.text, features='html.parser')
-
-    if response_soup.find(id='captchacharacters'):
-        user_agent = None
-        logger.warning(f'{query_object.query} - Captcha triggered')
-        abort(429, description='Captcha triggered')
-
-    return response_soup
 
 
 def get_response_dict(url, query_object, useragent_list, logger):
@@ -125,19 +85,19 @@ def get_response_dict(url, query_object, useragent_list, logger):
     # split streamed payload and store as a list
     if STREAM_DELIMITER in response.text:
 
-    json_list_str = response.text.split(STREAM_DELIMITER)
+        json_list_str = response.text.split(STREAM_DELIMITER)
 
-    # remove last triple if empty
-    if len(json_list_str[-1]) == 1:
-        del json_list_str[-1]
+        # remove last triple if empty
+        if len(json_list_str[-1]) == 1:
+            del json_list_str[-1]
 
-    # decode each payload and store as a nested list
-    json_nested_list = [json.loads(_str) for _str in json_list_str]
+        # decode each payload and store as a nested list
+        json_nested_list = [json.loads(_str) for _str in json_list_str]
 
-    # convert payload to dict using 2nd and 3rd elements as key-value pairs
-    json_dict = {_list[1]: _list[2] for _list in json_nested_list}
+        # convert payload to dict using 2nd and 3rd elements as key-value pairs
+        json_dict = {_list[1]: _list[2] for _list in json_nested_list}
 
-    return json_dict
+        return json_dict
     else:
         return response.json()
 
@@ -305,27 +265,39 @@ def get_search_results(search_query, useragent_list, logger):
     return json_feed
 
 
+def get_dimension_url(listing_query, logger, item_id):
+    #   Call the dimension endpoint which is used on mobile pages to display price and availability for product variants
+    #   Use a pair of ASINs with a valid parent-child relationship to trigger a response
+
+    locale_data = listing_query.locale
+    base_url = 'https://' + locale_data.domain
+    dimension_endpoint = base_url + '/gp/twister/dimension?'
+
+    query_dict = {
+        'asinList': locale_data.child_asin + ',' + item_id,
+        'productTypeDefinition': None,
+        'productGroupId': locale_data.product_group,
+        'parentAsin': locale_data.parent_asin
+    }
+
+    return dimension_endpoint + urlencode(query_dict)
+
+
 def get_item_listing(listing_query, useragent_list, logger):
-    base_url = 'https://' + get_amazon_domain(listing_query.country, logger)
-
     item_id = listing_query.query
-    item_url = get_item_url(base_url, item_id)
+    base_url = 'https://' + listing_query.locale.domain
+    item_dimension_url = get_dimension_url(listing_query, logger, item_id)
 
-    response_soup = get_response_soup(
-        item_url, listing_query, useragent_list, logger)
+    for x in range(RETRY_COUNT + 1):
+        json_dict = get_response_dict(
+            item_dimension_url, listing_query, useragent_list, logger)
+        if not json_dict:
+            logger.debug(f'"{listing_query.query}" - retrying {x + 1} time(s)')
+        else:
+            break
 
-    # select product title
-    item_title_soup = response_soup.select_one('div#title_feature_div')
-
-    # select price, use both desktop and mobile selectors
-    item_price_soup = response_soup.select_one('''
-        div#newPitchPriceWrapper_feature_div,
-        span.priceBlockDealPriceString,
-        span#priceblock_dealprice,
-        span#priceblock_ourprice
-    ''')
-
-    item_price = item_price_soup.text.strip() if item_price_soup else None
+    item_price = next(result['price']
+                      for result in json_dict if result['asin'] == item_id)
 
     json_feed = get_top_level_feed(base_url, listing_query)
 
@@ -346,21 +318,7 @@ def get_item_listing(listing_query, useragent_list, logger):
                 f'"{listing_query.query}" - exceeded max price {max_price_clean}')
             return json_feed
 
-    item_thumbnail_url = None
-
-    item_thumbnail_img_soup = response_soup.select_one(
-        'div#main-image-container img#landingImage,div#landing-image-wrapper img#main-image')
-
-    # prefer "src" least because it contains image embedded as data uri when queried without JS
-    if item_thumbnail_img_soup:
-        item_thumbnail_url_list = [item_thumbnail_img_soup.get(attr) for attr in [
-            'data-a-hires', 'data-old-hires', 'src'] if item_thumbnail_img_soup.has_attr(attr)]
-        item_thumbnail_url = item_thumbnail_url_list[0]
-    else:
-        logger.info(f'"{listing_query.query}" - thumbnail not found')
-
-    feed_item = generate_item(
-        base_url, item_id, item_title_soup, item_price_soup, item_thumbnail_url)
+    feed_item = generate_item(base_url, item_id, None, item_price, None)
 
     json_feed.items.append(feed_item)
 
