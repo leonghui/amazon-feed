@@ -4,8 +4,6 @@ from json_feed_data import JsonFeedTopLevel, JsonFeedItem
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
 from requests import Session
-from requests.utils import cookiejar_from_dict, dict_from_cookiejar
-from dataclasses import asdict
 
 import bleach
 import random
@@ -303,16 +301,6 @@ def get_search_results(search_query, useragent_list, logger):
     return json_feed
 
 
-# modified from https://stackoverflow.com/a/24893252
-def remove_empty_from_dict(d):
-    if isinstance(d, dict):
-        return dict((k, remove_empty_from_dict(v)) for k, v in d.items() if v and remove_empty_from_dict(v))
-    elif isinstance(d, list):
-        return [remove_empty_from_dict(v) for v in d if v and remove_empty_from_dict(v)]
-    else:
-        return d
-
-
 def get_item_listing(listing_query, useragent_list, logger):
     base_url = 'https://' + get_amazon_domain(listing_query.country, logger)
 
@@ -372,4 +360,4 @@ def get_item_listing(listing_query, useragent_list, logger):
 
     json_feed.items.append(feed_item)
 
-    return remove_empty_from_dict(asdict(json_feed))
+    return json_feed
