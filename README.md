@@ -3,7 +3,7 @@ A simple Python script to generate a [JSON Feed](https://github.com/brentsimmons
 
 Uses [BeautifulSoup 4](https://www.crummy.com/software/BeautifulSoup/) and served over [Flask!](https://github.com/pallets/flask/)
 
-Use the [Docker build](https://hub.docker.com/r/leonghui/amazon-feed) to host your own instance.
+Use the [Docker build](https://github.com/users/leonghui/packages/container/package/amazon-feed) to host your own instance.
 
 1. Set your timezone as an environment variable (see [docker docs]): `TZ=America/Los_Angeles`
 
