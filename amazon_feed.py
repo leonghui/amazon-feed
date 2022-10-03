@@ -1,6 +1,6 @@
 from datetime import datetime
 from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
-from json_feed_data import JsonFeedTopLevel, JsonFeedItem
+from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
 from requests import Session
@@ -157,6 +157,7 @@ def get_top_level_feed(base_url, query_object, feed_items):
         title_strings.append(f"filtered by {', '.join(filters)}")
 
     json_feed = JsonFeedTopLevel(
+        version=JSONFEED_VERSION_URL,
         items=feed_items,
         title=' - '.join(title_strings),
         home_page_url=home_page_url,
