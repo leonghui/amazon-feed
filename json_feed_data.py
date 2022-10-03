@@ -1,32 +1,31 @@
-from dataclasses import dataclass, field
+from typing import List, TypedDict
 
 JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1.1'
 
 
-@dataclass
-class JsonFeedAuthor():
-    name: str = None
-    url: str = None
-    avatar: str = None
+class JsonFeedAuthor(TypedDict):
+    name: str
+    url: str
+    avatar: str
 
 
-@dataclass
-class JsonFeedItem():
+class JsonFeedItem(TypedDict):
     id: str  # required
-    url: str = None
-    title: str = None
-    content_html: str = None
-    image: str = None
-    date_published: str = None
-    authors: list[JsonFeedAuthor] = field(default_factory=list)
+    url: str
+    title: str
+    content_html: str
+    content_text: str
+    image: str
+    date_published: str
+    date_modified: str
+    authors: List[JsonFeedAuthor]
 
 
-@dataclass
-class JsonFeedTopLevel():
+class JsonFeedTopLevel(TypedDict):
     title: str  # required
-    items: list[JsonFeedItem]  # required
-    version: str = JSONFEED_VERSION_URL  # required
-    home_page_url: str = None
-    description: str = None
-    favicon: str = None
-    authors: list[JsonFeedAuthor] = field(default_factory=list)
+    items: List[JsonFeedItem]  # required
+    version: str  # required
+    home_page_url: str
+    description: str
+    favicon: str
+    authors: List[JsonFeedAuthor]

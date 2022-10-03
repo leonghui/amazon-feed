@@ -129,7 +129,7 @@ def get_item_url(base_url, item_id):
     return base_url + '/gp/product/' + item_id
 
 
-def get_top_level_feed(base_url, query_object):
+def get_top_level_feed(base_url, query_object, feed_items):
 
     parse_object = urlparse(base_url)
     domain = parse_object.netloc
@@ -157,7 +157,7 @@ def get_top_level_feed(base_url, query_object):
         title_strings.append(f"filtered by {', '.join(filters)}")
 
     json_feed = JsonFeedTopLevel(
-        items=[],
+        items=feed_items,
         title=' - '.join(title_strings),
         home_page_url=home_page_url,
         favicon=base_url + '/favicon.ico'
@@ -216,8 +216,6 @@ def get_search_results(search_query, useragent_list, logger):
     results_dict = {k: v for k, v in json_dict.items() if k.startswith(
         'data-main-slot:search-result-')}
 
-    json_feed = get_top_level_feed(base_url, search_query)
-
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query.split()])
         logger.debug(
@@ -225,6 +223,8 @@ def get_search_results(search_query, useragent_list, logger):
 
     results_count = json_dict.get(
         'data-search-metadata').get('metadata').get('totalResultCount')
+
+    generated_items = []
 
     for result in results_dict.values():
         item_id = result.get('asin')
@@ -257,10 +257,12 @@ def get_search_results(search_query, useragent_list, logger):
             else:
                 feed_item = generate_item(
                     base_url, item_id, item_title, item_price_text, item_thumbnail_url)
-                json_feed.items.append(feed_item)
+                generated_items.append(feed_item)
 
     logger.info(
-        f'"{search_query.query}" - found {results_count} - published {len(json_feed.items)}')
+        f'"{search_query.query}" - found {results_count} - published {len(generated_items)}')
+
+    json_feed = get_top_level_feed(base_url, search_query, generated_items)
 
     return json_feed
 
@@ -299,7 +301,7 @@ def get_item_listing(listing_query, useragent_list, logger):
     item_price = next(result['price']
                       for result in json_dict if result['asin'] == item_id)
 
-    json_feed = get_top_level_feed(base_url, listing_query)
+    json_feed = get_top_level_feed(base_url, listing_query, [])
 
     if not(item_price):
         logger.info(listing_query.query + ' - price not found')
@@ -320,6 +322,6 @@ def get_item_listing(listing_query, useragent_list, logger):
 
     feed_item = generate_item(base_url, item_id, None, item_price, None)
 
-    json_feed.items.append(feed_item)
+    json_feed = get_top_level_feed(base_url, listing_query, [feed_item])
 
     return json_feed
