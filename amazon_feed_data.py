@@ -12,14 +12,16 @@ class AmazonLocaleData():
 
 # requires valid child_asin, parent_asin, and product_group for item dimension endpoint
 locale_list = [
-    AmazonLocaleData('AU', 'www.amazon.com.au', 'B08F7PTF53',
-                     'B08J926K2M', 'ce_display_on_website'),
-    AmazonLocaleData('SG', 'www.amazon.sg', 'B08F7PTF53',
-                     'B08J926K2M', 'video_games_display_on_website'),
+    AmazonLocaleData('AU', 'www.amazon.com.au', 'B094WLFGD3',
+                     'B09DW6QRBK', 'video_games_display_on_website'),
+    AmazonLocaleData('SG', 'www.amazon.sg', 'B08HNRSVQP',
+                     'B09LR9Z5X7', 'video_games_display_on_website'),
+    AmazonLocaleData('UK', 'www.amazon.co.uk', 'B08H95Y452',
+                     'B0B44ZP2K1', 'video_games_display_on_website'),
 ]
 
-default_locale = AmazonLocaleData('US', 'www.amazon.com', 'B08F7PTF53',
-                                  'B08J926K2M', 'video_games_display_on_website')
+default_locale = AmazonLocaleData('US', 'www.amazon.com', 'B09NLJGTHL',
+                                  'B094YHB1QK', 'video_games_display_on_website')
 
 locale_list.append(default_locale)
 
