@@ -53,7 +53,7 @@ class QueryStatus():
 class _BaseQuery():
     query: str
     status: QueryStatus
-    locale: AmazonLocaleData = default_locale
+    locale: AmazonLocaleData = field(default=default_locale)
     country: str = 'US'
 
     def validate_country(self):
