@@ -1,4 +1,5 @@
 bleach
 flask
 requests
+requests-cache
 beautifulsoup4

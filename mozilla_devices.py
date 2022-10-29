@@ -1,4 +1,4 @@
-from requests import Session
+from requests_cache import CachedSession
 from enum import Enum
 
 
@@ -14,7 +14,7 @@ class DeviceType(Enum):
 
 def get_useragent_list(device_type, logger):
     logger.debug(f"Querying endpoint: {CATALOG_URL}")
-    catalog_response = Session().get(CATALOG_URL)
+    catalog_response = CachedSession(backend='memory').get(CATALOG_URL)
     catalog_json = catalog_response.json() if catalog_response.ok else None
 
     if catalog_response.ok:

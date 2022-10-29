@@ -3,8 +3,8 @@ from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
-from requests import Session
 from requests.exceptions import JSONDecodeError
+from requests_cache import CachedSession
 
 import bleach
 import random
@@ -14,15 +14,20 @@ from bs4 import BeautifulSoup
 
 
 ITEM_QUANTITY = 1
-RETRY_COUNT = 2
+RETRY_COUNT = 5
 RETRY_WAIT_SEC = 3
+CACHE_EXPIRATION_SEC = 60
 
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
 STREAM_DELIMITER = '&&&'    # application/json-amazonui-streaming
 
-session = Session()
+session = CachedSession(
+    allowable_methods=('GET', 'POST'),
+    stale_if_error=True,
+    expire_after=CACHE_EXPIRATION_SEC,
+    backend='memory')
 user_agent = None
 
 # mimic headers from Firefox 84.0
@@ -34,9 +39,7 @@ session.headers.update(
         'X-Requested-With': 'XMLHttpRequest',
         'Connection': 'keep-alive',
         'Content-Type': 'application/json',
-        'TE': 'Trailers',
-        'Cache-Control': 'max-age=0, no-cache',
-        'Pragma': 'no-cache'
+        'TE': 'Trailers'
     }
 )
 
@@ -302,14 +305,15 @@ def get_item_listing(listing_query, useragent_list, logger):
         json_dict = get_response_dict(
             item_dimension_url, listing_query, useragent_list, logger)
         if not json_dict:
-            logger.warning(f'"{listing_query.query}" - retrying {x + 1} time(s)')
+            logger.warning(
+                f'"{listing_query.query}" - retrying {x + 1} time(s)')
             time.sleep(RETRY_WAIT_SEC)
         else:
             break
 
     if json_dict:
         item_price = next(result['price']
-                      for result in json_dict if result['asin'] == item_id)
+                          for result in json_dict if result['asin'] == item_id)
     else:
         item_price = None
 
