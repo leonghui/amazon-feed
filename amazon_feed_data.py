@@ -9,6 +9,9 @@ class AmazonLocaleData():
     parent_asin: str
     product_group: str
 
+    def __hash__(self):
+        return hash(self.code)
+
 
 # requires valid child_asin, parent_asin, and product_group for item dimension endpoint
 locale_list = [
