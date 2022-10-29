@@ -4,15 +4,18 @@ from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
 from requests import Session
+from requests.exceptions import JSONDecodeError
 
 import bleach
 import random
 import json
+import time
 from bs4 import BeautifulSoup
 
 
 ITEM_QUANTITY = 1
-RETRY_COUNT = 5
+RETRY_COUNT = 2
+RETRY_WAIT_SEC = 3
 
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
@@ -99,7 +102,11 @@ def get_response_dict(url, query_object, useragent_list, logger):
 
         return json_dict
     else:
-        return response.json()
+        try:
+            return response.json()
+        except JSONDecodeError as jdex:
+            logger.error(f'"{query_object.query}" - exception: {jdex}')
+            return None
 
 
 def get_search_url(base_url, query_object, is_xhr=False):
@@ -291,20 +298,24 @@ def get_item_listing(listing_query, useragent_list, logger):
     base_url = 'https://' + listing_query.locale.domain
     item_dimension_url = get_dimension_url(listing_query, logger, item_id)
 
-    for x in range(RETRY_COUNT + 1):
+    for x in range(RETRY_COUNT):
         json_dict = get_response_dict(
             item_dimension_url, listing_query, useragent_list, logger)
         if not json_dict:
-            logger.debug(f'"{listing_query.query}" - retrying {x + 1} time(s)')
+            logger.warning(f'"{listing_query.query}" - retrying {x + 1} time(s)')
+            time.sleep(RETRY_WAIT_SEC)
         else:
             break
 
-    item_price = next(result['price']
+    if json_dict:
+        item_price = next(result['price']
                       for result in json_dict if result['asin'] == item_id)
+    else:
+        item_price = None
 
     json_feed = get_top_level_feed(base_url, listing_query, [])
 
-    if not(item_price):
+    if not item_price:
         logger.info(listing_query.query + ' - price not found')
         return json_feed
 
