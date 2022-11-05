@@ -31,8 +31,7 @@ session = CachedSession(
 user_agent = None
 
 # mimic headers from Firefox 84.0
-session.headers.update(
-    {
+headers = {
         'Accept': 'text/html,*/*',
         'Accept-Language': 'en-US,en;q=0.5',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -41,14 +40,13 @@ session.headers.update(
         'Content-Type': 'application/json',
         'TE': 'Trailers'
     }
-)
 
 
 def get_response_dict(url, query_object, useragent_list, logger):
     global user_agent
 
     referer = 'https://' + query_object.locale.domain + '/'
-    headers = {'Referer': referer}
+    headers['Referer'] = referer
 
     if useragent_list and not user_agent:
         user_agent = random.choice(useragent_list)
