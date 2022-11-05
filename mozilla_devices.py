@@ -21,6 +21,7 @@ def get_useragent_list(device_type, logger):
         useragent_list = [device['userAgent']
                           for device in catalog_json[device_type.value]]
         logger.info(f"Found {len(useragent_list)} user agents for {device_type.name.lower()}")
+        logger.debug(f"Response cached: {catalog_response.from_cache}")
         return useragent_list
 
     else:

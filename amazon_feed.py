@@ -78,6 +78,9 @@ def get_response_dict(url, query_object, useragent_list, logger):
                 f'"{query_object.query}" - dumping input: {response.text}')
             abort(
                 500, description=f"HTTP status from source: {response.status_code}")
+    else:
+        logger.debug(
+            f'"{query_object.query}" - response cached: {response.from_cache}')
 
     # Each "application/json-amazonui-streaming" payload is a triple:
     # ["dispatch",
