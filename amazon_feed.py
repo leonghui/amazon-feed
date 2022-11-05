@@ -3,7 +3,7 @@ from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 from urllib.parse import quote_plus, urlparse, urlencode
 from flask import abort
-from requests.exceptions import JSONDecodeError
+from requests.exceptions import JSONDecodeError, RequestException
 from requests_cache import CachedSession
 
 import bleach
@@ -62,7 +62,7 @@ def get_response_dict(url, query_object, useragent_list, logger):
 
     try:
         response = session.post(url, headers=headers)
-    except Exception as ex:
+    except RequestException as ex:
         logger.error(f'"{query_object.query}" - exception: {ex}')
         abort(500, description=ex)
 
