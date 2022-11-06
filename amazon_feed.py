@@ -306,6 +306,7 @@ def get_item_listing(listing_query, useragent_list, logger):
         json_dict = get_response_dict(
             item_dimension_url, listing_query, useragent_list, logger)
         if not json_dict:
+            session.cache.clear() # treat empty response as stale
             logger.warning(
                 f'"{listing_query.query}" - retrying {x + 1} time(s)')
             time.sleep(RETRY_WAIT_SEC)
