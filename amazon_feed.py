@@ -14,8 +14,8 @@ from bs4 import BeautifulSoup
 
 
 ITEM_QUANTITY = 1
-RETRY_COUNT = 5
-RETRY_WAIT_SEC = 3
+RETRY_COUNT = 3
+RETRY_WAIT_SEC = 5
 CACHE_EXPIRATION_SEC = 60
 
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
