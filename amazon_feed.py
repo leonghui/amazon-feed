@@ -61,7 +61,9 @@ def get_response_dict(url, query_object, useragent_list, logger):
     try:
         response = session.post(url, headers=headers)
     except RequestException as ex:
-        logger.error(f'"{query_object.query}" - exception: {ex}')
+        logger.error(f'"{query_object.query}" - {type(ex)}: {ex}')
+        logger.debug(
+            f'"{query_object.query}" - dumping input: {response.text}')
         abort(500, description=ex)
 
     # return HTTP error code
@@ -109,7 +111,13 @@ def get_response_dict(url, query_object, useragent_list, logger):
         try:
             return response.json()
         except JSONDecodeError as jdex:
-            logger.error(f'"{query_object.query}" - exception: {jdex}')
+            if response.text.find("captcha"):
+                logger.warning(query_object.query + ' - API paywall triggered')
+                abort(503, description='API paywall triggered')
+            else:
+                logger.error(f'"{query_object.query}" - {type(jdex)}: {jdex}')
+                logger.debug(
+                    f'"{query_object.query}" - dumping input: {response.text}')
             return None
 
 
