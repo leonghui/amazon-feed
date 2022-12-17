@@ -322,8 +322,10 @@ def get_item_listing(listing_query, useragent_list, logger):
             break
 
     if json_dict:
-        item_price = next(result['price']
-                          for result in json_dict if result['asin'] == item_id)
+        matching_result = next(
+            result for result in json_dict if result['asin'] == item_id)
+        item_price = matching_result['price'] \
+            if matching_result['price'] else matching_result['availability']
     else:
         item_price = None
 
