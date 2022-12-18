@@ -17,7 +17,7 @@ from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 
 ITEM_QUANTITY = 1
 RETRY_COUNT = 3
-RETRY_WAIT_SEC = 5
+RETRY_WAIT_SEC = 3
 CACHE_EXPIRATION_SEC = 60
 
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
