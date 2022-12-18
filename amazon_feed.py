@@ -1,17 +1,18 @@
+import json
+import random
+import re
+import time
 from datetime import datetime
-from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
-from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 from urllib.parse import quote_plus, urlparse, urlencode
+
+import bleach
+from bs4 import BeautifulSoup
 from flask import abort
 from requests.exceptions import JSONDecodeError, RequestException
 from requests_cache import CachedSession
 
-import bleach
-import random
-import re
-import json
-import time
-from bs4 import BeautifulSoup
+from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
+from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 
 
 ITEM_QUANTITY = 1
@@ -287,9 +288,12 @@ def get_search_results(search_query, useragent_list, logger):
     return json_feed
 
 
-def get_dimension_url(listing_query, logger, item_id):
-    #   Call the dimension endpoint which is used on mobile pages to display price and availability for product variants
-    #   Use a pair of ASINs with a valid parent-child relationship to trigger a response
+def get_dimension_url(listing_query, item_id):
+    #   Call the dimension endpoint which is used on mobile pages
+    #   to display price and availability for product variants
+    #
+    #   Use a pair of ASINs with a valid parent-child relationship
+    #   to trigger a response
 
     locale_data = listing_query.locale
     base_url = 'https://' + locale_data.domain
@@ -308,15 +312,15 @@ def get_dimension_url(listing_query, logger, item_id):
 def get_item_listing(listing_query, useragent_list, logger):
     item_id = listing_query.query
     base_url = 'https://' + listing_query.locale.domain
-    item_dimension_url = get_dimension_url(listing_query, logger, item_id)
+    item_dimension_url = get_dimension_url(listing_query, item_id)
 
-    for x in range(RETRY_COUNT):
+    for index in range(RETRY_COUNT):
         json_dict = get_response_dict(
             item_dimension_url, listing_query, useragent_list, logger)
         if not json_dict:
             session.cache.clear()  # treat empty response as stale
             logger.warning(
-                f'"{listing_query.query}" - retrying {x + 1} time(s)')
+                f'"{listing_query.query}" - retrying {index + 1} time(s)')
             time.sleep(RETRY_WAIT_SEC)
         else:
             break

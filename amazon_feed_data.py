@@ -47,7 +47,8 @@ def get_locale_data(country, logger):
     if not domain:
         logger.info(f'Undefined country "{country}", defaulting to US')
 
-    return domain if domain else next(locale_data for locale_data in locale_list if locale_data.code == 'US')
+    return domain if domain else \
+        next(locale_data for locale_data in locale_list if locale_data.code == 'US')
 
 
 def string_to_boolean(string):

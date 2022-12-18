@@ -1,5 +1,5 @@
-from requests_cache import CachedSession
 from enum import Enum
+from requests_cache import CachedSession
 
 
 CATALOG_URL = 'https://code.cdn.mozilla.net/devices/devices.json'
