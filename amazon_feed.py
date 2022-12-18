@@ -192,7 +192,6 @@ def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail
     item_thumbnail_html = f'<img src=\"{item_thumbnail_url}\" />'
 
     timestamp = datetime.now().timestamp()
-    timestamp_html = f"<p>Last updated: {datetime.fromtimestamp(timestamp).strftime('%d %B %Y %I:%M%p')}</p>"
 
     item_link_url = get_item_url(base_url, item_id)
     item_link_html = f'<p><a href=\"{item_link_url}\">Product Link</a></p>'
@@ -200,7 +199,7 @@ def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail
     item_add_to_cart_url = f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
     item_add_to_cart_html = f'<p><a href=\"{item_add_to_cart_url}\">Add to Cart</a></p>'
 
-    content_body_list = [timestamp_html, item_link_html, item_add_to_cart_html]
+    content_body_list = [item_link_html, item_add_to_cart_html]
 
     if item_thumbnail_url:
         content_body_list.insert(0, item_thumbnail_html)
