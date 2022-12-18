@@ -73,9 +73,10 @@ def handle_streaming_response(response, query):
         except JSONDecodeError as jdex:
             if response.text.find("captcha"):
                 bot_msg = f'"{query.query_str}" - API paywall triggered, resetting session'
-                reset_query_session(query)
 
                 logger.warning(bot_msg)
+                reset_query_session(query)
+
                 abort(503, description=bot_msg)
             else:
                 logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
