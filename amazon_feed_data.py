@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 from enum import Enum
+from logging import Logger
+
+from requests_cache import CachedSession
 
 
 class UnavailabilityText(str, Enum):  # allow comparison with strings
@@ -40,19 +43,15 @@ default_locale = AmazonLocale('US', 'www.amazon.com', UnavailabilityText.EN, Opt
 locale_list.append(default_locale)
 
 
-def get_locale_data(country, logger):
-    domain = next(
-        locale_data for locale_data in locale_list if locale_data.code == country)
-
-    if not domain:
-        logger.info(f'Undefined country "{country}", defaulting to US')
-
-    return domain if domain else \
-        next(locale_data for locale_data in locale_list if locale_data.code == 'US')
-
-
 def string_to_boolean(string):
     return string.lower().strip() in ['yes', 'true']
+
+
+@dataclass()
+class FeedConfig():
+    session: CachedSession
+    logger: Logger
+    useragent: str = ''
 
 
 @dataclass
@@ -66,10 +65,11 @@ class QueryStatus():
 
 @dataclass
 class _BaseQuery():
-    query: str
     status: QueryStatus
-    locale: AmazonLocale = field(default=default_locale)
+    config: FeedConfig
+    query_str: str
     country: str = 'US'
+    locale: AmazonLocale = field(default=default_locale)
 
     def validate_country(self):
         if self.country:
@@ -109,12 +109,11 @@ class _AmazonSearchFilter:
 
 
 @dataclass
-class AmazonSearchQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
-    __slots__ = ['query', 'country', 'locale', 'min_price',
-                 'max_price', 'strict']
+class AmazonListingQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
+    query_str: str = 'AMD'
 
     def __post_init__(self):
-        if not isinstance(self.query, str):
+        if not isinstance(self.query_str, str):
             self.status.errors.append('Invalid query')
 
         self.validate_country()
@@ -125,11 +124,11 @@ class AmazonSearchQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
 
 
 @dataclass
-class AmazonListQuery(_BaseQueryWithPriceFilter):
-    __slots__ = ['query', 'country', 'locale', 'min_price', 'max_price']
+class AmazonItemQuery(_BaseQueryWithPriceFilter):
+    query_str: str = 'B08166SLDF'   #  AMD Ryzen 5 5600X Processor
 
     def __post_init__(self):
-        if not isinstance(self.query, str):
+        if not isinstance(self.query_str, str):
             self.status.errors.append('Invalid id (ASIN)')
 
         self.validate_country()

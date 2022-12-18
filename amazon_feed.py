@@ -1,5 +1,4 @@
 import json
-import random
 import re
 import time
 from datetime import datetime
@@ -9,28 +8,19 @@ import bleach
 from bs4 import BeautifulSoup
 from flask import abort
 from requests.exceptions import JSONDecodeError, RequestException
-from requests_cache import CachedSession
 
-from amazon_feed_data import AmazonSearchQuery, AmazonListQuery
+from amazon_feed_data import AmazonListingQuery, AmazonItemQuery
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 
 
 ITEM_QUANTITY = 1
 RETRY_COUNT = 3
 RETRY_WAIT_SEC = 3
-CACHE_EXPIRATION_SEC = 60
 
 allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
 allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
 STREAM_DELIMITER = '&&&'    # application/json-amazonui-streaming
-
-session = CachedSession(
-    allowable_methods=('GET', 'POST'),
-    stale_if_error=True,
-    expire_after=CACHE_EXPIRATION_SEC,
-    backend='memory')
-user_agent = None
 
 # mimic headers from Firefox 84.0
 headers = {
@@ -44,45 +34,13 @@ headers = {
 }
 
 
-def get_response_dict(url, query_object, useragent_list, logger):
-    global user_agent
+def reset_query_session(query):
+    query.config.useragent = None
+    query.config.session.cookies.clear()
 
-    referer = 'https://' + query_object.locale.domain + '/'
-    headers['Referer'] = referer
 
-    if useragent_list and not user_agent:
-        user_agent = random.choice(useragent_list)
-        logger.debug(
-            f'"{query_object.query}" - using user-agent: "{user_agent}"')
-
-    if user_agent:
-        headers['User-Agent'] = user_agent
-
-    logger.debug(f'"{query_object.query}" - querying endpoint: {url}')
-
-    try:
-        response = session.post(url, headers=headers)
-    except RequestException as ex:
-        logger.error(f'"{query_object.query}" - {type(ex)}: {ex}')
-        logger.debug(
-            f'"{query_object.query}" - dumping input: {response.text}')
-        abort(500, description=ex)
-
-    # return HTTP error code
-    if not response.ok:
-        user_agent = None
-        if response.status_code == 503:
-            logger.warning(query_object.query + ' - API paywall triggered')
-            abort(503, description='API paywall triggered')
-        else:
-            logger.error(f'"{query_object.query}" - error from source')
-            logger.debug(
-                f'"{query_object.query}" - dumping input: {response.text}')
-            abort(
-                500, description=f"HTTP status from source: {response.status_code}")
-    else:
-        logger.debug(
-            f'"{query_object.query}" - response cached: {response.from_cache}')
+def handle_streaming_response(response, query):
+    logger = query.config.logger
 
     # Each "application/json-amazonui-streaming" payload is a triple:
     # ["dispatch",
@@ -114,28 +72,69 @@ def get_response_dict(url, query_object, useragent_list, logger):
             return response.json()
         except JSONDecodeError as jdex:
             if response.text.find("captcha"):
-                logger.warning(query_object.query + ' - API paywall triggered')
-                abort(503, description='API paywall triggered')
+                bot_msg = f'"{query.query_str}" - API paywall triggered, resetting session'
+                reset_query_session(query)
+
+                logger.warning(bot_msg)
+                abort(503, description=bot_msg)
             else:
-                logger.error(f'"{query_object.query}" - {type(jdex)}: {jdex}')
+                logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
                 logger.debug(
-                    f'"{query_object.query}" - dumping input: {response.text}')
+                    f'"{query.query_str}" - dumping input: {response.text}')
             return None
 
 
-def get_search_url(base_url, query_object, is_xhr=False):
+def get_response_dict(url, query):
+    logger = query.config.logger
+    session = query.config.session
+
+    headers['User-Agent'] = query.config.useragent
+    headers['Referer'] = 'https://' + query.locale.domain + '/'
+
+    session.headers = headers
+
+    logger.debug(f'"{query.query_str}" - querying endpoint: {url}')
+
+    try:
+        response = session.post(url)
+    except RequestException as rex:
+        reset_query_session(query)
+        logger.error(f'"{query.query_str}" - {type(rex)}: {rex}')
+        return None
+
+    # return HTTP error code
+    if not response.ok:
+        if response.status_code == 503:
+            bot_msg = f'"{query.query_str}" - API paywall triggered, resetting session'
+            reset_query_session(query)
+
+            logger.warning(bot_msg)
+            abort(503, description=bot_msg)
+        else:
+            logger.error(f'"{query.query_str}" - error from source')
+            logger.debug(
+                f'"{query.query_str}" - dumping input: {response.text}')
+            return None
+    else:
+        logger.debug(
+            f'"{query.query_str}" - response cached: {response.from_cache}')
+
+    return handle_streaming_response(response, query)
+
+
+def get_search_url(base_url, query, is_xhr=False):
     search_uri = f"{base_url}/s/query?" if is_xhr else f"{base_url}/s?"
 
-    search_dict = {'k': quote_plus(query_object.query)}
+    search_dict = {'k': quote_plus(query.query_str)}
 
     price_param_value = min_price = max_price = None
 
-    if query_object.min_price or query_object.max_price:
+    if query.min_price or query.max_price:
         price_param = 'p_36:'
-        if query_object.min_price:
-            min_price = query_object.min_price + '00'
-        if query_object.max_price:
-            max_price = query_object.max_price + '00'
+        if query.min_price:
+            min_price = query.min_price + '00'
+        if query.max_price:
+            max_price = query.max_price + '00'
 
         price_param_value = ''.join(
             item for item in [price_param, min_price, '-', max_price] if item)
@@ -150,29 +149,29 @@ def get_item_url(base_url, item_id):
     return base_url + '/gp/product/' + item_id
 
 
-def get_top_level_feed(base_url, query_object, feed_items):
+def get_top_level_feed(base_url, query, feed_items):
 
     parse_object = urlparse(base_url)
     domain = parse_object.netloc
 
-    title_strings = [domain, query_object.query]
+    title_strings = [domain, query.query_str]
 
     filters = []
 
-    if isinstance(query_object, AmazonSearchQuery):
-        home_page_url = get_search_url(base_url, query_object)
+    if isinstance(query, AmazonListingQuery):
+        home_page_url = get_search_url(base_url, query)
 
-        if query_object.strict:
+        if query.strict:
             filters.append('strict')
 
-    elif isinstance(query_object, AmazonListQuery):
-        home_page_url = get_item_url(base_url, query_object.query)
+    elif isinstance(query, AmazonItemQuery):
+        home_page_url = get_item_url(base_url, query.query_str)
 
-    if query_object.min_price:
-        filters.append(f"min {query_object.min_price}")
+    if query.min_price:
+        filters.append(f"min {query.min_price}")
 
-    if query_object.max_price:
-        filters.append(f"max {query_object.max_price}")
+    if query.max_price:
+        filters.append(f"max {query.max_price}")
 
     if filters:
         title_strings.append(f"filtered by {', '.join(filters)}")
@@ -226,21 +225,23 @@ def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail
     return feed_item
 
 
-def get_search_results(search_query, useragent_list, logger):
+def get_search_results(search_query):
+    logger = search_query.config.logger
+
     base_url = 'https://' + search_query.locale.domain
 
     search_url = get_search_url(base_url, search_query, is_xhr=True)
 
-    json_dict = get_response_dict(
-        search_url, search_query, useragent_list, logger)
+    json_dict = get_response_dict(search_url, search_query)
 
     results_dict = {k: v for k, v in json_dict.items() if k.startswith(
         'data-main-slot:search-result-')}
 
     if search_query.strict:
-        term_list = set([term.lower() for term in search_query.query.split()])
+        term_list = set([term.lower()
+                        for term in search_query.query_str.split()])
         logger.debug(
-            f'"{search_query.query}" - strict mode enabled, title must contain: {term_list}')
+            f'"{search_query.query_str}" - strict mode enabled, title must contain: {term_list}')
 
     results_count = json_dict.get(
         'data-search-metadata').get('metadata').get('totalResultCount')
@@ -274,14 +275,14 @@ def get_search_results(search_query, useragent_list, logger):
         if item_price_soup:
             if search_query.strict and (term_list and not all(item_title.lower().find(term) >= 0 for term in term_list)):
                 logger.debug(
-                    f'"{search_query.query}" - strict mode - removed {item_id} "{item_title}"')
+                    f'"{search_query.query_str}" - strict mode - removed {item_id} "{item_title}"')
             else:
                 feed_item = generate_item(
                     base_url, item_id, item_title, item_price_text, item_thumbnail_url)
                 generated_items.append(feed_item)
 
     logger.info(
-        f'"{search_query.query}" - found {results_count} - published {len(generated_items)}')
+        f'"{search_query.query_str}" - found {results_count} - published {len(generated_items)}')
 
     json_feed = get_top_level_feed(base_url, search_query, generated_items)
 
@@ -289,7 +290,7 @@ def get_search_results(search_query, useragent_list, logger):
 
 
 def get_dimension_url(listing_query, item_id):
-    #   Call the dimension endpoint which is used on mobile pages
+    #   Call the "dimension" endpoint which is used on mobile pages
     #   to display price and availability for product variants
     #
     #   Use a pair of ASINs with a valid parent-child relationship
@@ -309,18 +310,19 @@ def get_dimension_url(listing_query, item_id):
     return dimension_endpoint + urlencode(query_dict)
 
 
-def get_item_listing(listing_query, useragent_list, logger):
-    item_id = listing_query.query
-    base_url = 'https://' + listing_query.locale.domain
-    item_dimension_url = get_dimension_url(listing_query, item_id)
+def get_item_listing(query):
+    logger = query.config.logger
+
+    item_id = query.query_str
+    base_url = 'https://' + query.locale.domain
+    item_dimension_url = get_dimension_url(query, item_id)
 
     for index in range(RETRY_COUNT):
-        json_dict = get_response_dict(
-            item_dimension_url, listing_query, useragent_list, logger)
+        json_dict = get_response_dict(item_dimension_url, query)
         if not json_dict:
-            session.cache.clear()  # treat empty response as stale
+            query.config.session.cache.clear()  # treat empty response as stale
             logger.warning(
-                f'"{listing_query.query}" - retrying {index + 1} time(s)')
+                f'"{query.query_str}" - retrying {index + 1} time(s)')
             time.sleep(RETRY_WAIT_SEC)
         else:
             break
@@ -331,37 +333,37 @@ def get_item_listing(listing_query, useragent_list, logger):
         item_price = matching_result['price']
         item_availability = matching_result['availability']
 
-        if not item_price:
-            if item_availability == listing_query.locale.unavailable_text:
-                logger.debug(f'"{listing_query.query}" - item is unavailable')
+        if not item_price and item_availability:
+            if item_availability == query.locale.unavailable_text:
+                logger.debug(f'"{query.query_str}" - item is unavailable')
             else:
                 item_price = re.sub(
-                    listing_query.locale.option_pattern, '', item_availability)
+                    query.locale.option_pattern, '', item_availability)
 
     else:
         item_price = None
 
-    json_feed = get_top_level_feed(base_url, listing_query, [])
+    json_feed = get_top_level_feed(base_url, query, [])
 
     if not item_price:
-        logger.info(listing_query.query + ' - price not found')
+        logger.info(query.query_str + ' - price not found')
         return json_feed
 
     # exit if exceeded max price
-    if item_price and listing_query.max_price:
+    if item_price and query.max_price:
         item_price_clean = ''.join(filter(str.isnumeric, item_price))
 
         # handle currencies without decimal places
-        max_price_clean = listing_query.max_price + \
-            '00' if '.' in item_price else listing_query.max_price
+        max_price_clean = query.max_price + \
+            '00' if '.' in item_price else query.max_price
 
         if float(item_price_clean) > float(max_price_clean):
             logger.info(
-                f'"{listing_query.query}" - exceeded max price {listing_query.max_price}')
+                f'"{query.query_str}" - exceeded max price {query.max_price}')
             return json_feed
 
     feed_item = generate_item(base_url, item_id, None, item_price, None)
 
-    json_feed = get_top_level_feed(base_url, listing_query, [feed_item])
+    json_feed = get_top_level_feed(base_url, query, [feed_item])
 
     return json_feed
