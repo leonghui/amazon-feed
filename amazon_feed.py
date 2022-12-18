@@ -8,6 +8,7 @@ from requests_cache import CachedSession
 
 import bleach
 import random
+import re
 import json
 import time
 from bs4 import BeautifulSoup
@@ -328,9 +329,10 @@ def get_item_listing(listing_query, useragent_list, logger):
 
         if not item_price:
             if item_availability == listing_query.locale.unavailable_text:
-                logger.info(f'"{listing_query.query}" - item is unavailable')
+                logger.debug(f'"{listing_query.query}" - item is unavailable')
             else:
-                item_price = item_availability 
+                item_price = re.sub(
+                    listing_query.locale.option_pattern, '', item_availability)
 
     else:
         item_price = None

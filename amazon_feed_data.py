@@ -1,15 +1,21 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
+
 class UnavailabilityText(str, Enum):  # allow comparison with strings
     EN = 'Currently unavailable.'
 
 
+class OptionPatterns(str, Enum):
+    EN = r'[0-9]+ options? from '
+
+
 @dataclass
-class AmazonLocaleData():
+class AmazonLocale():
     code: str
     domain: str
     unavailable_text: UnavailabilityText
+    option_pattern: OptionPatterns
     child_asin: str
     parent_asin: str
     product_group: str
@@ -20,16 +26,16 @@ class AmazonLocaleData():
 
 # requires valid child_asin, parent_asin, and product_group for item dimension endpoint
 locale_list = [
-    AmazonLocaleData('AU', 'www.amazon.com.au', UnavailabilityText.EN,
-                     'B08N3J8GTX', 'B0BCMPYWKN', 'amazon_ereaders_display_on_website'),
-    AmazonLocaleData('SG', 'www.amazon.sg', UnavailabilityText.EN,
-                     'B09SWTG9GF', 'B0BCSYDF82', 'amazon_devices_display_on_website'),
-    AmazonLocaleData('UK', 'www.amazon.co.uk', UnavailabilityText.EN,
-                     'B08N36XNTT', 'B0BF6HS47P', 'amazon_ereaders_display_on_website'),
+    AmazonLocale('AU', 'www.amazon.com.au', UnavailabilityText.EN, OptionPatterns.EN,
+                 'B08N3J8GTX', 'B0BCMPYWKN', 'amazon_ereaders_display_on_website'),
+    AmazonLocale('SG', 'www.amazon.sg', UnavailabilityText.EN, OptionPatterns.EN,
+                 'B09SWTG9GF', 'B0BCSYDF82', 'amazon_devices_display_on_website'),
+    AmazonLocale('UK', 'www.amazon.co.uk', UnavailabilityText.EN, OptionPatterns.EN,
+                 'B08N36XNTT', 'B0BF6HS47P', 'amazon_ereaders_display_on_website'),
 ]
 
-default_locale = AmazonLocaleData('US', 'www.amazon.com', UnavailabilityText.EN,
-                                  'B09TMK7QFX', 'B0BCTGXVB2', 'amazon_ereaders_display_on_website')
+default_locale = AmazonLocale('US', 'www.amazon.com', UnavailabilityText.EN, OptionPatterns.EN,
+                              'B09TMK7QFX', 'B0BCTGXVB2', 'amazon_ereaders_display_on_website')
 
 locale_list.append(default_locale)
 
@@ -61,7 +67,7 @@ class QueryStatus():
 class _BaseQuery():
     query: str
     status: QueryStatus
-    locale: AmazonLocaleData = field(default=default_locale)
+    locale: AmazonLocale = field(default=default_locale)
     country: str = 'US'
 
     def validate_country(self):
