@@ -32,14 +32,14 @@ user_agent = None
 
 # mimic headers from Firefox 84.0
 headers = {
-        'Accept': 'text/html,*/*',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Connection': 'keep-alive',
-        'Content-Type': 'application/json',
-        'TE': 'Trailers'
-    }
+    'Accept': 'text/html,*/*',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'X-Requested-With': 'XMLHttpRequest',
+    'Connection': 'keep-alive',
+    'Content-Type': 'application/json',
+    'TE': 'Trailers'
+}
 
 
 def get_response_dict(url, query_object, useragent_list, logger):
@@ -314,7 +314,7 @@ def get_item_listing(listing_query, useragent_list, logger):
         json_dict = get_response_dict(
             item_dimension_url, listing_query, useragent_list, logger)
         if not json_dict:
-            session.cache.clear() # treat empty response as stale
+            session.cache.clear()  # treat empty response as stale
             logger.warning(
                 f'"{listing_query.query}" - retrying {x + 1} time(s)')
             time.sleep(RETRY_WAIT_SEC)
@@ -324,8 +324,15 @@ def get_item_listing(listing_query, useragent_list, logger):
     if json_dict:
         matching_result = next(
             result for result in json_dict if result['asin'] == item_id)
-        item_price = matching_result['price'] \
-            if matching_result['price'] else matching_result['availability']
+        item_price = matching_result['price']
+        item_availability = matching_result['availability']
+
+        if not item_price:
+            if item_availability == listing_query.locale.unavailable_text:
+                logger.info(f'"{listing_query.query}" - item is unavailable')
+            else:
+                item_price = item_availability 
+
     else:
         item_price = None
 
