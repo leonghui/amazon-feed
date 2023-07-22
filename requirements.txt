@@ -1,5 +1,5 @@
+beautifulsoup4
 flask
+nh3
 requests
 requests-cache
-beautifulsoup4
-nh3

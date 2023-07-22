@@ -1,6 +1,6 @@
 from typing import List, TypedDict
 
-JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1.1'
+JSONFEED_VERSION_URL = "https://jsonfeed.org/version/1.1"
 
 
 class JsonFeedAuthor(TypedDict):
