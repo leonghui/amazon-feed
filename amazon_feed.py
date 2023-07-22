@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from urllib.parse import quote_plus, urlparse, urlencode
 
-import bleach
+from nh3 import nh3
 from bs4 import BeautifulSoup
 from flask import abort
 from requests.exceptions import JSONDecodeError, RequestException
@@ -17,9 +17,8 @@ ITEM_QUANTITY = 1
 RETRY_COUNT = 3
 RETRY_WAIT_SEC = 3
 
-allowed_tags = bleach.ALLOWED_TAGS + ['img', 'p']
-allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
-allowed_attributes.update({'img': ['src']})
+allowed_tags = {'a', 'img', 'p'}
+allowed_attributes = {'a': {'href', 'title'}, 'img': {'src'}}
 STREAM_DELIMITER = '&&&'    # application/json-amazonui-streaming
 
 # mimic headers from Firefox 84.0
@@ -208,7 +207,7 @@ def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail
 
     content_body = ''.join(content_body_list)
 
-    sanitized_html = bleach.clean(
+    sanitized_html = nh3.clean(
         content_body,
         tags=allowed_tags,
         attributes=allowed_attributes
