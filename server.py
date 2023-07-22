@@ -12,7 +12,7 @@ from mozilla_devices import get_useragent_list, DeviceType
 CACHE_EXPIRATION_SEC = 60
 
 app = Flask(__name__)
-app.config.update({'JSONIFY_MIMETYPE': 'application/feed+json'})
+app.config.update({'JSONIFY_MIMETYPE': 'application/json'})
 
 # app.debug = True
 
