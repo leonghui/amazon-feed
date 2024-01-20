@@ -19,42 +19,29 @@ class AmazonLocale:
     domain: str
     unavailable_text: UnavailabilityText
     option_pattern: OptionPatterns
-    child_asin: str
-    parent_asin: str
-    product_group: str
 
     def __hash__(self):
         return hash(self.code)
 
 
-# requires valid child_asin, parent_asin, and product_group for item dimension endpoint
 locale_list = [
     AmazonLocale(
         "AU",
         "www.amazon.com.au",
         UnavailabilityText.EN,
         OptionPatterns.EN,
-        "B08N3J8GTX",
-        "B0BCMPYWKN",
-        "amazon_ereaders_display_on_website",
     ),
     AmazonLocale(
         "SG",
         "www.amazon.sg",
         UnavailabilityText.EN,
         OptionPatterns.EN,
-        "B09SWTG9GF",
-        "B0BCSYDF82",
-        "amazon_devices_display_on_website",
     ),
     AmazonLocale(
         "UK",
         "www.amazon.co.uk",
         UnavailabilityText.EN,
         OptionPatterns.EN,
-        "B08N36XNTT",
-        "B0BF6HS47P",
-        "amazon_ereaders_display_on_website",
     ),
 ]
 
@@ -63,9 +50,6 @@ default_locale = AmazonLocale(
     "www.amazon.com",
     UnavailabilityText.EN,
     OptionPatterns.EN,
-    "B09TMK7QFX",
-    "B0BCTGXVB2",
-    "amazon_ereaders_display_on_website",
 )
 
 locale_list.append(default_locale)

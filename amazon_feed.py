@@ -305,19 +305,14 @@ def get_search_results(search_query):
 def get_dimension_url(listing_query, item_id):
     #   Call the "dimension" endpoint which is used on mobile pages
     #   to display price and availability for product variants
-    #
-    #   Use a pair of ASINs with a valid parent-child relationship
-    #   to trigger a response
 
     locale_data = listing_query.locale
     base_url = "https://" + locale_data.domain
     dimension_endpoint = base_url + "/gp/twister/dimension?"
 
     query_dict = {
-        "asinList": locale_data.child_asin + "," + item_id,
-        "productTypeDefinition": None,
-        "productGroupId": locale_data.product_group,
-        "parentAsin": locale_data.parent_asin,
+        "asinList": item_id,
+        "parentAsin": item_id,
     }
 
     return dimension_endpoint + urlencode(query_dict)
