@@ -20,6 +20,7 @@ RETRY_WAIT_SEC = 3
 allowed_tags = {"a", "img", "p"}
 allowed_attributes = {"a": {"href", "title"}, "img": {"src"}}
 STREAM_DELIMITER = "&&&"  # application/json-amazonui-streaming
+EMPTY_RESPONSE = b"\n\n    \n        \n        \n\n\n  \n  \n\n                    "
 
 # mimic headers from Firefox 84.0
 headers = {
@@ -69,18 +70,8 @@ def handle_streaming_response(response, query):
         try:
             return response.json()
         except JSONDecodeError as jdex:
-            if response.text.find("captcha"):
-                bot_msg = (
-                    f'"{query.query_str}" - API paywall triggered, resetting session'
-                )
-
-                logger.warning(bot_msg)
-                reset_query_session(query)
-
-                abort(503, description=bot_msg)
-            else:
-                logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
-                logger.debug(f'"{query.query_str}" - dumping input: {response.text}')
+            logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
+            logger.debug(f'"{query.query_str}" - dumping input: {response.text}')
             return None
 
 
@@ -104,7 +95,7 @@ def get_response_dict(url, query):
 
     # return HTTP error code
     if not response.ok:
-        if response.status_code == 503:
+        if response.status_code == 503 or response.text.find("captcha") >= 0:
             bot_msg = f'"{query.query_str}" - API paywall triggered, resetting session'
             reset_query_session(query)
 
@@ -115,6 +106,8 @@ def get_response_dict(url, query):
             logger.debug(f'"{query.query_str}" - dumping input: {response.text}')
             return None
     else:
+        if response.content == EMPTY_RESPONSE:
+            return {}
         logger.debug(f'"{query.query_str}" - response cached: {response.from_cache}')
 
     return handle_streaming_response(response, query)
@@ -327,8 +320,8 @@ def get_item_listing(query):
 
     for index in range(RETRY_COUNT):
         json_dict = get_response_dict(item_dimension_url, query)
-        if not json_dict:
-            query.config.session.cache.clear()  # treat empty response as stale
+        if json_dict == None:
+            query.config.session.cache.clear()
             logger.warning(f'"{query.query_str}" - retrying {index + 1} time(s)')
             time.sleep(RETRY_WAIT_SEC)
         else:
