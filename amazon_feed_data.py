@@ -1,8 +1,12 @@
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
+import re
 
 from requests_cache import CachedSession
+
+
+ASIN_PATTERN = r"^(B[\dA-Z]{9}|\d{9}(X|\d))$"
 
 
 class UnavailabilityText(str, Enum):  # allow comparison with strings
@@ -142,7 +146,7 @@ class AmazonItemQuery(_BaseQueryWithPriceFilter):
     query_str: str = "B08166SLDF"  #  AMD Ryzen 5 5600X Processor
 
     def __post_init__(self):
-        if not isinstance(self.query_str, str):
+        if not re.match(ASIN_PATTERN, self.query_str):
             self.status.errors.append("Invalid id (ASIN)")
 
         self.validate_country()
