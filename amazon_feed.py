@@ -71,7 +71,7 @@ def handle_streaming_response(response, query):
             return response.json()
         except JSONDecodeError as jdex:
             logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
-            logger.debug(f'"{query.query_str}" - dumping input: {response.text}')
+            logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
             return None
 
 
@@ -103,7 +103,7 @@ def get_response_dict(url, query):
             abort(503, description=bot_msg)
         else:
             logger.error(f'"{query.query_str}" - error from source')
-            logger.debug(f'"{query.query_str}" - dumping input: {response.text}')
+            logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
             return None
     else:
         if response.content == EMPTY_RESPONSE:
