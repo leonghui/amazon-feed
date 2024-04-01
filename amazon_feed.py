@@ -14,13 +14,10 @@ from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 
 
 ITEM_QUANTITY = 1
-RETRY_COUNT = 3
-RETRY_WAIT_SEC = 3
 
 allowed_tags = {"a", "img", "p"}
 allowed_attributes = {"a": {"href", "title"}, "img": {"src"}}
 STREAM_DELIMITER = "&&&"  # application/json-amazonui-streaming
-EMPTY_RESPONSE = b"\n\n    \n        \n        \n\n\n  \n  \n\n                    "
 
 # mimic headers from Firefox 84.0
 headers = {
@@ -106,8 +103,6 @@ def get_response_dict(url, query):
             logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
             return None
     else:
-        if response.content == EMPTY_RESPONSE:
-            return {}
         logger.debug(f'"{query.query_str}" - response cached: {response.from_cache}')
 
     return handle_streaming_response(response, query)
@@ -322,16 +317,19 @@ def get_item_listing(query):
     base_url = "https://" + query.locale.domain
     item_dimension_url = get_dimension_url(query, item_id)
 
-    for index in range(RETRY_COUNT):
-        json_dict = get_response_dict(item_dimension_url, query)
-        if json_dict == None:
-            query.config.session.cache.clear()
-            logger.warning(f'"{query.query_str}" - retrying {index + 1} time(s)')
-            time.sleep(RETRY_WAIT_SEC)
-        else:
-            break
+    json_dict = get_response_dict(item_dimension_url, query)
 
-    if json_dict:
+    if json_dict == None:
+        logger.error(f'"{query.query_str}" - falling back on search results')
+        new_query = AmazonListingQuery(
+            status=query.status,
+            query_str=query.query_str,
+            config=query.config,
+            country=query.country,
+            strict_str="true",
+        )
+        return get_search_results(new_query)
+    elif json_dict:
         matching_result = next(
             result for result in json_dict if result["asin"] == item_id
         )
@@ -343,9 +341,6 @@ def get_item_listing(query):
                 logger.debug(f'"{query.query_str}" - item is unavailable')
             else:
                 item_price = re.sub(query.locale.option_pattern, "", item_availability)
-
-    else:
-        item_price = None
 
     json_feed = get_top_level_feed(base_url, query, [])
 
