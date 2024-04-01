@@ -61,7 +61,7 @@ def process_listing():
         "country": request.args.get("country") or AmazonListingQuery.country,
         "min_price": request.args.get("min_price"),
         "max_price": request.args.get("max_price"),
-        "strict": request.args.get("strict"),
+        "strict_str": request.args.get("strict"),
     }
 
     if not config.useragent:

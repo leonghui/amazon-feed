@@ -119,11 +119,12 @@ class _BaseQueryWithPriceFilter(_PriceFilter, _BaseQuery):
 
 @dataclass
 class _AmazonSearchFilter:
+    strict_str: str = 'False'
     strict: bool = False
 
     def validate_amazon_search_filters(self):
-        if self.strict:
-            self.strict = string_to_boolean(self.strict)
+        if self.strict_str:
+            self.strict = string_to_boolean(self.strict_str)
 
 
 @dataclass
