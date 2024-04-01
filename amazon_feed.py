@@ -236,7 +236,7 @@ def get_search_results(search_query):
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query_str.split()])
         logger.debug(
-            f'"{search_query.query_str}" - strict mode enabled, title must contain: {term_list}'
+            f'"{search_query.query_str}" - strict mode enabled, title or asin must contain: {term_list}'
         )
 
     results_count = (
@@ -273,9 +273,13 @@ def get_search_results(search_query):
         )
 
         if item_price_soup:
+            # search term must exist in item title or ASIN
             if search_query.strict and (
                 term_list
-                and not all(item_title.lower().find(term) >= 0 for term in term_list)
+                and not (
+                    all(item_title.lower().find(term) >= 0 for term in term_list)
+                    or item_id == search_query.query_str
+                )
             ):
                 logger.debug(
                     f'"{search_query.query_str}" - strict mode - removed {item_id} "{item_title}"'
