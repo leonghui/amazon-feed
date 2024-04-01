@@ -113,7 +113,7 @@ def get_response_dict(url, query):
     return handle_streaming_response(response, query)
 
 
-def get_search_url(base_url, query, is_xhr=False):
+def get_search_url(base_url, query, is_xhr=True):
     search_uri = f"{base_url}/s/query?" if is_xhr else f"{base_url}/s?"
 
     search_dict = {"k": quote_plus(query.query_str)}
@@ -150,7 +150,7 @@ def get_top_level_feed(base_url, query, feed_items):
     filters = []
 
     if isinstance(query, AmazonListingQuery):
-        home_page_url = get_search_url(base_url, query)
+        home_page_url = get_search_url(base_url, query, is_xhr=False)
 
         if query.strict:
             filters.append("strict")
@@ -223,7 +223,7 @@ def get_search_results(search_query):
 
     base_url = "https://" + search_query.locale.domain
 
-    search_url = get_search_url(base_url, search_query, is_xhr=True)
+    search_url = get_search_url(base_url, search_query)
 
     json_dict = get_response_dict(search_url, search_query)
 
