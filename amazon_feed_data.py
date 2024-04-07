@@ -131,6 +131,21 @@ class _AmazonSearchFilter:
 class AmazonListingQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
     query_str: str = "AMD"
 
+    def from_item_query(query):
+        assert isinstance(query, AmazonItemQuery)
+
+        listing_query = AmazonListingQuery(
+            status=query.status,
+            query_str=query.query_str,
+            config=query.config,
+            country=query.country,
+            min_price=query.min_price,
+            max_price=query.max_price,
+            strict_str="true",
+        )
+
+        return listing_query
+
     def __post_init__(self):
         if not isinstance(self.query_str, str):
             self.status.errors.append("Invalid query")

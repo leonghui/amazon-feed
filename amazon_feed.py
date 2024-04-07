@@ -321,13 +321,8 @@ def get_item_listing(query):
 
     if json_dict == None:
         logger.error(f'"{query.query_str}" - falling back on search results')
-        new_query = AmazonListingQuery(
-            status=query.status,
-            query_str=query.query_str,
-            config=query.config,
-            country=query.country,
-            strict_str="true",
-        )
+        new_query = AmazonListingQuery.from_item_query(query)
+
         return get_search_results(new_query)
     elif json_dict:
         matching_result = next(
