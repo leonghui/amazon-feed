@@ -4,9 +4,9 @@ from flask import Flask, abort, jsonify, request
 from flask.logging import create_logger
 from requests_cache import CachedSession
 
-from amazon_feed import get_item_listing, get_search_results
-from amazon_feed_data import (AmazonItemQuery, AmazonListingQuery, FeedConfig,
-                              QueryStatus)
+from amazon_feed import get_item_listing, get_keyword_results
+from amazon_feed_data import (AmazonAsinQuery, AmazonKeywordQuery, FeedConfig,
+                              FilterableQuery, QueryStatus)
 from mozilla_devices import DeviceType, get_useragent_list
 
 CACHE_EXPIRATION_SEC = 60
@@ -35,15 +35,17 @@ def set_useragent():
     config.logger.debug(f"Using user-agent: {config.useragent}")
 
 
-def generate_response(query):
+def generate_response(query: FilterableQuery):
     if not query.status.ok:
         abort(400, description="Errors found: " + ", ".join(query.status.errors))
 
     config.logger.debug(query)  # log values
 
-    if isinstance(query, AmazonListingQuery):
-        output = get_search_results(query)
-    elif isinstance(query, AmazonItemQuery):
+    output = None
+
+    if isinstance(query, AmazonKeywordQuery):
+        output = get_keyword_results(query)
+    elif isinstance(query, AmazonAsinQuery):
         output = get_item_listing(query)
     return jsonify(output)
 
@@ -52,8 +54,8 @@ def generate_response(query):
 @app.route("/search", methods=["GET"])
 def process_listing():
     list_request_dict = {
-        "query_str": request.args.get("query") or AmazonListingQuery.query_str,
-        "country": request.args.get("country") or AmazonListingQuery.country,
+        "query_str": request.args.get("query") or AmazonKeywordQuery.query_str,
+        "country": request.args.get("country") or AmazonKeywordQuery.country,
         "min_price": request.args.get("min_price"),
         "max_price": request.args.get("max_price"),
         "strict_str": request.args.get("strict"),
@@ -62,7 +64,7 @@ def process_listing():
     if not config.useragent:
         set_useragent()
 
-    listing_query = AmazonListingQuery(
+    listing_query = AmazonKeywordQuery(
         status=QueryStatus(), config=config, **list_request_dict
     )
 
@@ -72,8 +74,8 @@ def process_listing():
 @app.route("/item", methods=["GET"])
 def process_item():
     item_request_dict = {
-        "query_str": request.args.get("id") or AmazonItemQuery.query_str,
-        "country": request.args.get("country") or AmazonItemQuery.country,
+        "query_str": request.args.get("id") or AmazonAsinQuery.query_str,
+        "country": request.args.get("country") or AmazonAsinQuery.country,
         "min_price": None,
         "max_price": request.args.get("max_price"),
     }
@@ -81,7 +83,7 @@ def process_item():
     if not config.useragent:
         set_useragent()
 
-    item_query = AmazonItemQuery(
+    item_query = AmazonAsinQuery(
         status=QueryStatus(), config=config, **item_request_dict
     )
 

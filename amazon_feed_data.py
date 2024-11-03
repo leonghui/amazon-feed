@@ -88,7 +88,7 @@ class _PriceFilter:
 
 
 @dataclass
-class _BaseQueryWithPriceFilter(_PriceFilter, _BaseQuery):
+class FilterableQuery(_PriceFilter, _BaseQuery):
     def validate_price_filters(self):
         if self.max_price and not self.max_price.isnumeric():
             self.status.errors.append("Invalid max price")
@@ -98,7 +98,7 @@ class _BaseQueryWithPriceFilter(_PriceFilter, _BaseQuery):
 
 
 @dataclass
-class _AmazonSearchFilter:
+class _AmazonKeywordFilter:
     strict_str: str = "False"
     strict: bool = False
 
@@ -108,13 +108,13 @@ class _AmazonSearchFilter:
 
 
 @dataclass
-class AmazonListingQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
+class AmazonKeywordQuery(_AmazonKeywordFilter, FilterableQuery):
     query_str: str = "AMD"
 
     def from_item_query(self):
-        assert isinstance(self, AmazonItemQuery)
+        assert isinstance(self, AmazonAsinQuery)
 
-        listing_query = AmazonListingQuery(
+        listing_query = AmazonKeywordQuery(
             status=self.status,
             query_str=self.query_str,
             config=self.config,
@@ -138,7 +138,7 @@ class AmazonListingQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
 
 
 @dataclass
-class AmazonItemQuery(_BaseQueryWithPriceFilter):
+class AmazonAsinQuery(FilterableQuery):
     query_str: str = "B08166SLDF"  #  AMD Ryzen 5 5600X Processor
 
     def __post_init__(self):

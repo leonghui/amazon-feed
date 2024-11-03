@@ -2,12 +2,14 @@ import re
 from datetime import datetime
 from urllib.parse import quote_plus, urlencode, urlparse
 
+import nh3
 from bs4 import BeautifulSoup
 from flask import abort
-from nh3 import nh3
 from requests.exceptions import JSONDecodeError, RequestException
+from requests_cache import AnyResponse
 
-from amazon_feed_data import BOT_PATTERN, AmazonItemQuery, AmazonListingQuery
+from amazon_feed_data import (BOT_PATTERN, AmazonAsinQuery, AmazonKeywordQuery,
+                              FilterableQuery)
 from json_feed_data import JSONFEED_VERSION_URL, JsonFeedItem, JsonFeedTopLevel
 
 ITEM_QUANTITY = 1
@@ -28,12 +30,12 @@ headers = {
 }
 
 
-def reset_query_session(query):
-    query.config.useragent = None
+def reset_query_session(query: FilterableQuery):
+    query.config.useragent = ""
     query.config.session.cookies.clear()
 
 
-def handle_response(response, query):
+def handle_response(response: AnyResponse, query: FilterableQuery):
     logger = query.config.logger
 
     try:
@@ -44,7 +46,7 @@ def handle_response(response, query):
         return None
 
 
-def get_response_dict(url, query):
+def get_response_dict(url: str, query: FilterableQuery):
     logger = query.config.logger
     session = query.config.session
 
@@ -80,7 +82,7 @@ def get_response_dict(url, query):
     return handle_response(response, query)
 
 
-def get_search_url(base_url, query, is_xhr=True):
+def get_search_url(base_url: str, query: FilterableQuery, is_xhr: bool = True):
     search_uri = f"{base_url}/s/query?" if is_xhr else f"{base_url}/s?"
 
     search_dict = {"k": quote_plus(query.query_str)}
@@ -104,11 +106,13 @@ def get_search_url(base_url, query, is_xhr=True):
     return search_uri + urlencode(search_dict)
 
 
-def get_item_url(base_url, item_id):
+def get_item_url(base_url: str, item_id: str):
     return base_url + "/gp/product/" + item_id
 
 
-def get_top_level_feed(base_url, query, feed_items):
+def get_top_level_feed(
+    base_url: str, query: FilterableQuery, feed_items: list[JsonFeedItem]
+):
     parse_object = urlparse(base_url)
     domain = parse_object.netloc
 
@@ -116,13 +120,13 @@ def get_top_level_feed(base_url, query, feed_items):
 
     filters = []
 
-    if isinstance(query, AmazonListingQuery):
+    if isinstance(query, AmazonKeywordQuery):
         home_page_url = get_search_url(base_url, query, is_xhr=False)
 
         if query.strict:
             filters.append("strict")
 
-    elif isinstance(query, AmazonItemQuery):
+    elif isinstance(query, AmazonAsinQuery):
         home_page_url = get_item_url(base_url, query.query_str)
 
     if query.min_price:
@@ -145,7 +149,13 @@ def get_top_level_feed(base_url, query, feed_items):
     return json_feed
 
 
-def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail_url):
+def generate_item(
+    base_url: str,
+    item_id: str,
+    item_title: str,
+    item_price_text: str,
+    item_thumbnail_url: str,
+):
     item_title_text = item_title.strip() if item_title else item_id
 
     item_thumbnail_html = f'<img src="{item_thumbnail_url}" />'
@@ -185,7 +195,7 @@ def generate_item(base_url, item_id, item_title, item_price_text, item_thumbnail
     return feed_item
 
 
-def get_search_results(search_query):
+def get_keyword_results(search_query: AmazonKeywordQuery):
     logger = search_query.config.logger
 
     base_url = "https://" + search_query.locale.domain
@@ -204,6 +214,8 @@ def get_search_results(search_query):
         else {}
     )
 
+    term_list: list[str] = []
+
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query_str.split()])
         logger.debug(
@@ -215,7 +227,7 @@ def get_search_results(search_query):
     generated_items = []
 
     for result in results_dict.values():
-        item_id = result.get("asin")
+        item_id: str = result.get("asin")
         item_soup = BeautifulSoup(result.get("html"), features="html.parser")
 
         # select product title, use wildcard CSS selector for better international compatibility
@@ -268,11 +280,11 @@ def get_search_results(search_query):
     return json_feed
 
 
-def get_dimension_url(listing_query, item_id):
+def get_dimension_url(query: AmazonAsinQuery, item_id: str):
     #   Call the "dimension" endpoint which is used on mobile pages
     #   to display price and optionally availability for product variants
 
-    locale_data = listing_query.locale
+    locale_data = query.locale
     base_url = "https://" + locale_data.domain
     dimension_endpoint = base_url + "/gp/product/ajax?"
 
@@ -286,7 +298,7 @@ def get_dimension_url(listing_query, item_id):
     return dimension_endpoint + urlencode(query_dict)
 
 
-def get_item_listing(query):
+def get_item_listing(query: AmazonAsinQuery):
     logger = query.config.logger
 
     item_id = query.query_str
@@ -295,14 +307,14 @@ def get_item_listing(query):
 
     json_dict = get_response_dict(item_dimension_url, query)
 
-    item_price = None
+    item_price: str = ""
 
     if json_dict:
         # Assume one item is returned per response
-        matching_result = (
+        result = (
             json_dict.get("Value", {}).get("content", {}).get("twisterSlotJson", {})
         )
-        item_price = matching_result.get("price")
+        item_price = result.get("price")
 
     json_feed = get_top_level_feed(base_url, query, [])
 
@@ -325,7 +337,7 @@ def get_item_listing(query):
 
     formatted_price = query.locale.currency + item_price
 
-    feed_item = generate_item(base_url, item_id, None, formatted_price, None)
+    feed_item = generate_item(base_url, item_id, "", formatted_price, "")
 
     json_feed = get_top_level_feed(base_url, query, [feed_item])
 
