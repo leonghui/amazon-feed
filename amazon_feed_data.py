@@ -1,17 +1,12 @@
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-import re
 
 from requests_cache import CachedSession
 
-
 ASIN_PATTERN = r"^(B[\dA-Z]{9}|\d{9}(X|\d))$"
 BOT_PATTERN = r"automated access|captcha"
-
-
-class OptionPatterns(str, Enum):
-    EN = r"[0-9]+ options? from "
 
 
 @dataclass
@@ -19,38 +14,25 @@ class AmazonLocale:
     code: str
     domain: str
     currency: str
-    option_pattern: OptionPatterns
 
     def __hash__(self):
         return hash(self.code)
 
 
 locale_list = [
-    AmazonLocale(
-        "AU",
-        "www.amazon.com.au",
-        '$',
-        OptionPatterns.EN,
-    ),
-    AmazonLocale(
-        "SG",
-        "www.amazon.sg",
-        'S$',
-        OptionPatterns.EN,
-    ),
+    AmazonLocale("AU", "www.amazon.com.au", "$"),
+    AmazonLocale("SG", "www.amazon.sg", "S$"),
     AmazonLocale(
         "UK",
         "www.amazon.co.uk",
-        '£',
-        OptionPatterns.EN,
+        "£",
     ),
 ]
 
 default_locale = AmazonLocale(
     "US",
     "www.amazon.com",
-    '$',
-    OptionPatterns.EN,
+    "$",
 )
 
 locale_list.append(default_locale)

@@ -1,18 +1,13 @@
 import random
 
-from flask import Flask, request, jsonify, abort
+from flask import Flask, abort, jsonify, request
 from flask.logging import create_logger
 from requests_cache import CachedSession
 
-from amazon_feed import get_search_results, get_item_listing
-from amazon_feed_data import (
-    AmazonListingQuery,
-    AmazonItemQuery,
-    FeedConfig,
-    QueryStatus,
-)
-from mozilla_devices import get_useragent_list, DeviceType
-
+from amazon_feed import get_item_listing, get_search_results
+from amazon_feed_data import (AmazonItemQuery, AmazonListingQuery, FeedConfig,
+                              QueryStatus)
+from mozilla_devices import DeviceType, get_useragent_list
 
 CACHE_EXPIRATION_SEC = 60
 

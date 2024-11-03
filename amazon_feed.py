@@ -2,16 +2,15 @@ import json
 import re
 import time
 from datetime import datetime
-from urllib.parse import quote_plus, urlparse, urlencode
+from urllib.parse import quote_plus, urlencode, urlparse
 
-from nh3 import nh3
 from bs4 import BeautifulSoup
 from flask import abort
+from nh3 import nh3
 from requests.exceptions import JSONDecodeError, RequestException
 
-from amazon_feed_data import AmazonListingQuery, AmazonItemQuery, BOT_PATTERN
-from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
-
+from amazon_feed_data import BOT_PATTERN, AmazonItemQuery, AmazonListingQuery
+from json_feed_data import JSONFEED_VERSION_URL, JsonFeedItem, JsonFeedTopLevel
 
 ITEM_QUANTITY = 1
 
@@ -197,11 +196,15 @@ def get_search_results(search_query):
 
     json_dict = get_response_dict(search_url, search_query)
 
-    results_dict = {
-        k: v
-        for k, v in json_dict.items()
-        if k.startswith("data-main-slot:search-result-")
-    } if json_dict else {}
+    results_dict = (
+        {
+            k: v
+            for k, v in json_dict.items()
+            if k.startswith("data-main-slot:search-result-")
+        }
+        if json_dict
+        else {}
+    )
 
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query_str.split()])
@@ -279,7 +282,7 @@ def get_dimension_url(listing_query, item_id):
         "asinList": item_id,
         "experienceId": "twisterDimensionSlotsDefault",
         "asin": item_id,
-        "deviceType": "mobile"
+        "deviceType": "mobile",
     }
 
     return dimension_endpoint + urlencode(query_dict)
@@ -298,8 +301,10 @@ def get_item_listing(query):
 
     if json_dict:
         # Assume one item is returned per response
-        matching_result = json_dict.get('Value', {}).get('content', {}).get('twisterSlotJson', {})
-        item_price = matching_result.get('price')
+        matching_result = (
+            json_dict.get("Value", {}).get("content", {}).get("twisterSlotJson", {})
+        )
+        item_price = matching_result.get("price")
 
     json_feed = get_top_level_feed(base_url, query, [])
 
