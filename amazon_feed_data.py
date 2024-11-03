@@ -10,10 +10,6 @@ ASIN_PATTERN = r"^(B[\dA-Z]{9}|\d{9}(X|\d))$"
 BOT_PATTERN = r"automated access|captcha"
 
 
-class UnavailabilityText(str, Enum):  # allow comparison with strings
-    EN = "Currently unavailable."
-
-
 class OptionPatterns(str, Enum):
     EN = r"[0-9]+ options? from "
 
@@ -22,7 +18,7 @@ class OptionPatterns(str, Enum):
 class AmazonLocale:
     code: str
     domain: str
-    unavailable_text: UnavailabilityText
+    currency: str
     option_pattern: OptionPatterns
 
     def __hash__(self):
@@ -33,19 +29,19 @@ locale_list = [
     AmazonLocale(
         "AU",
         "www.amazon.com.au",
-        UnavailabilityText.EN,
+        '$',
         OptionPatterns.EN,
     ),
     AmazonLocale(
         "SG",
         "www.amazon.sg",
-        UnavailabilityText.EN,
+        'S$',
         OptionPatterns.EN,
     ),
     AmazonLocale(
         "UK",
         "www.amazon.co.uk",
-        UnavailabilityText.EN,
+        '£',
         OptionPatterns.EN,
     ),
 ]
@@ -53,7 +49,7 @@ locale_list = [
 default_locale = AmazonLocale(
     "US",
     "www.amazon.com",
-    UnavailabilityText.EN,
+    '$',
     OptionPatterns.EN,
 )
 
@@ -120,7 +116,7 @@ class _BaseQueryWithPriceFilter(_PriceFilter, _BaseQuery):
 
 @dataclass
 class _AmazonSearchFilter:
-    strict_str: str = 'False'
+    strict_str: str = "False"
     strict: bool = False
 
     def validate_amazon_search_filters(self):

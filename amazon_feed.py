@@ -129,10 +129,10 @@ def get_top_level_feed(base_url, query, feed_items):
         home_page_url = get_item_url(base_url, query.query_str)
 
     if query.min_price:
-        filters.append(f"min {query.min_price}")
+        filters.append(f"min {query.locale.currency}{query.min_price}")
 
     if query.max_price:
-        filters.append(f"max {query.max_price}")
+        filters.append(f"max {query.locale.currency}{query.max_price}")
 
     if filters:
         title_strings.append(f"filtered by {', '.join(filters)}")
@@ -269,7 +269,7 @@ def get_search_results(search_query):
 
 def get_dimension_url(listing_query, item_id):
     #   Call the "dimension" endpoint which is used on mobile pages
-    #   to display price and availability for product variants
+    #   to display price and optionally availability for product variants
 
     locale_data = listing_query.locale
     base_url = "https://" + locale_data.domain
@@ -320,7 +320,9 @@ def get_item_listing(query):
             logger.info(f'"{query.query_str}" - exceeded max price {query.max_price}')
             return json_feed
 
-    feed_item = generate_item(base_url, item_id, None, item_price, None)
+    formatted_price = query.locale.currency + item_price
+
+    feed_item = generate_item(base_url, item_id, None, formatted_price, None)
 
     json_feed = get_top_level_feed(base_url, query, [feed_item])
 
