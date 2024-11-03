@@ -226,7 +226,7 @@ def get_search_results(search_query):
         k: v
         for k, v in json_dict.items()
         if k.startswith("data-main-slot:search-result-")
-    }
+    } if json_dict else {}
 
     if search_query.strict:
         term_list = set([term.lower() for term in search_query.query_str.split()])
@@ -234,9 +234,7 @@ def get_search_results(search_query):
             f'"{search_query.query_str}" - strict mode enabled, title or asin must contain: {term_list}'
         )
 
-    results_count = (
-        json_dict.get("data-search-metadata").get("metadata").get("totalResultCount")
-    )
+    results_count = len(results_dict)
 
     generated_items = []
 
