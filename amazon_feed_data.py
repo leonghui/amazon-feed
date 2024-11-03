@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass, field
-from enum import Enum
 from logging import Logger
+from typing import override
 
 from requests_cache import CachedSession
 
@@ -15,6 +15,7 @@ class AmazonLocale:
     domain: str
     currency: str
 
+    @override
     def __hash__(self):
         return hash(self.code)
 
@@ -38,7 +39,7 @@ default_locale = AmazonLocale(
 locale_list.append(default_locale)
 
 
-def string_to_boolean(string):
+def string_to_boolean(string: str):
     return string.lower().strip() in ["yes", "true"]
 
 
@@ -82,8 +83,8 @@ class _BaseQuery:
 
 @dataclass
 class _PriceFilter:
-    min_price: str = None
-    max_price: str = None
+    min_price: str = ""
+    max_price: str = ""
 
 
 @dataclass
@@ -110,23 +111,23 @@ class _AmazonSearchFilter:
 class AmazonListingQuery(_AmazonSearchFilter, _BaseQueryWithPriceFilter):
     query_str: str = "AMD"
 
-    def from_item_query(query):
-        assert isinstance(query, AmazonItemQuery)
+    def from_item_query(self):
+        assert isinstance(self, AmazonItemQuery)
 
         listing_query = AmazonListingQuery(
-            status=query.status,
-            query_str=query.query_str,
-            config=query.config,
-            country=query.country,
-            min_price=query.min_price,
-            max_price=query.max_price,
+            status=self.status,
+            query_str=self.query_str,
+            config=self.config,
+            country=self.country,
+            min_price=self.min_price,
+            max_price=self.max_price,
             strict_str="true",
         )
 
         return listing_query
 
     def __post_init__(self):
-        if not isinstance(self.query_str, str):
+        if not self.query_str:
             self.status.errors.append("Invalid query")
 
         self.validate_country()
