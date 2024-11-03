@@ -36,40 +36,15 @@ def reset_query_session(query):
     query.config.session.cookies.clear()
 
 
-def handle_streaming_response(response, query):
+def handle_response(response, query):
     logger = query.config.logger
 
-    # Each "application/json-amazonui-streaming" payload is a triple:
-    # ["dispatch",
-    #  "data-main-slot:search-result-2",
-    #  {
-    #      "html": ...,
-    #      "asin": "B00TSUGXKE",
-    #      "index": 2
-    #  }]
-
-    # split streamed payload and store as a list
-    if STREAM_DELIMITER in response.text:
-        json_list_str = response.text.split(STREAM_DELIMITER)
-
-        # remove last triple if empty
-        if len(json_list_str[-1]) == 1:
-            del json_list_str[-1]
-
-        # decode each payload and store as a nested list
-        json_nested_list = [json.loads(_str) for _str in json_list_str]
-
-        # convert payload to dict using 2nd and 3rd elements as key-value pairs
-        json_dict = {_list[1]: _list[2] for _list in json_nested_list}
-
-        return json_dict
-    else:
-        try:
-            return response.json()
-        except JSONDecodeError as jdex:
-            logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
-            logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
-            return None
+    try:
+        return response.json()
+    except JSONDecodeError as jdex:
+        logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
+        logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
+        return None
 
 
 def get_response_dict(url, query):
@@ -84,7 +59,7 @@ def get_response_dict(url, query):
     logger.debug(f'"{query.query_str}" - querying endpoint: {url}')
 
     try:
-        response = session.post(url)
+        response = session.get(url)
     except RequestException as rex:
         reset_query_session(query)
         logger.error(f'"{query.query_str}" - {type(rex)}: {rex}')
@@ -105,7 +80,7 @@ def get_response_dict(url, query):
     else:
         logger.debug(f'"{query.query_str}" - response cached: {response.from_cache}')
 
-    return handle_streaming_response(response, query)
+    return handle_response(response, query)
 
 
 def get_search_url(base_url, query, is_xhr=True):
@@ -298,11 +273,13 @@ def get_dimension_url(listing_query, item_id):
 
     locale_data = listing_query.locale
     base_url = "https://" + locale_data.domain
-    dimension_endpoint = base_url + "/gp/twister/dimension?"
+    dimension_endpoint = base_url + "/gp/product/ajax?"
 
     query_dict = {
         "asinList": item_id,
-        "parentAsin": item_id,
+        "experienceId": "twisterDimensionSlotsDefault",
+        "asin": item_id,
+        "deviceType": "mobile"
     }
 
     return dimension_endpoint + urlencode(query_dict)
@@ -317,28 +294,17 @@ def get_item_listing(query):
 
     json_dict = get_response_dict(item_dimension_url, query)
 
-    if json_dict == None:
-        logger.error(f'"{query.query_str}" - falling back on search results')
-        new_query = AmazonListingQuery.from_item_query(query)
+    item_price = None
 
-        return get_search_results(new_query)
-    elif json_dict:
-        matching_result = next(
-            result for result in json_dict if result["asin"] == item_id
-        )
-        item_price = matching_result["price"]
-        item_availability = matching_result["availability"]
-
-        if not item_price and item_availability:
-            if item_availability == query.locale.unavailable_text:
-                logger.debug(f'"{query.query_str}" - item is unavailable')
-            else:
-                item_price = re.sub(query.locale.option_pattern, "", item_availability)
+    if json_dict:
+        # Assume one item is returned per response
+        matching_result = json_dict.get('Value', {}).get('content', {}).get('twisterSlotJson', {})
+        item_price = matching_result.get('price')
 
     json_feed = get_top_level_feed(base_url, query, [])
 
     if not item_price:
-        logger.info(query.query_str + " - price not found")
+        logger.error(query.query_str + " - price not found")
         return json_feed
 
     # exit if exceeded max price
