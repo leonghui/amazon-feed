@@ -7,6 +7,7 @@ from requests_cache import CachedSession
 
 
 ASIN_PATTERN = r"^(B[\dA-Z]{9}|\d{9}(X|\d))$"
+BOT_PATTERN = r"automated access|captcha"
 
 
 class UnavailabilityText(str, Enum):  # allow comparison with strings

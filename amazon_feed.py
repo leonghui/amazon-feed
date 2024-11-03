@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from flask import abort
 from requests.exceptions import JSONDecodeError, RequestException
 
-from amazon_feed_data import AmazonListingQuery, AmazonItemQuery
+from amazon_feed_data import AmazonListingQuery, AmazonItemQuery, BOT_PATTERN
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JSONFEED_VERSION_URL
 
 
@@ -92,12 +92,12 @@ def get_response_dict(url, query):
 
     # return HTTP error code
     if not response.ok:
-        if response.status_code == 503 or response.text.find("captcha") >= 0:
+        if response.status_code == 503 or re.search(BOT_PATTERN, response.text):
             bot_msg = f'"{query.query_str}" - API paywall triggered, resetting session'
             reset_query_session(query)
 
             logger.warning(bot_msg)
-            abort(503, description=bot_msg)
+            abort(429, description=bot_msg)
         else:
             logger.error(f'"{query.query_str}" - error from source')
             logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
