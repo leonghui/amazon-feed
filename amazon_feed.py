@@ -345,21 +345,15 @@ def get_item_listing(query: AmazonAsinQuery):
         logger.error(query.query_str + " - price not found")
         return json_feed
 
-    item_price_flt = "{0:.2f}".format(float(item_price_str))
+    item_price = "{0:.2f}".format(float(item_price_str))
 
     # exit if exceeded max price
     if item_price_str and query.max_price:
-
-        # handle currencies without decimal places
-        max_price_clean = (
-            query.max_price + "00" if "." in item_price_str else query.max_price
-        )
-
-        if item_price_flt > float(max_price_clean):
+        if float(item_price) > float(query.max_price):
             logger.info(f"{query.query_str} - exceeded max price {query.max_price}")
             return json_feed
 
-    formatted_price = query.locale.currency + item_price_flt
+    formatted_price = query.locale.currency + item_price
 
     feed_item = generate_item(base_url, item_id, "", formatted_price, "")
 
