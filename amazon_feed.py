@@ -64,7 +64,7 @@ def handle_response(response: AnyResponse, query: FilterableQuery):
         return None
 
 
-def get_response_dict(url: str, query: FilterableQuery):
+def get_response(url: str, query: FilterableQuery):
     logger = query.config.logger
     session = query.config.session
 
@@ -80,7 +80,7 @@ def get_response_dict(url: str, query: FilterableQuery):
     except RequestException as rex:
         clear_session_cookies(query)
         logger.error(f"{query.query_str} - {type(rex)}: {rex}")
-        return None
+        abort(500)
 
     # return HTTP error code
     if not response.ok:
@@ -93,15 +93,19 @@ def get_response_dict(url: str, query: FilterableQuery):
         else:
             logger.error(f"{query.query_str} - error from source")
             logger.debug(f"{query.query_str} - dumping response: {response.text}")
-            return None
+            abort(500)
     else:
         logger.debug(f"{query.query_str} - response cached: {response.from_cache}")
 
+    return response
+
+def get_response_dict(url: str, query: FilterableQuery):
+    response = get_response(url, query)
     return handle_response(response, query)
 
 
-def get_search_url(base_url: str, query: FilterableQuery, is_xhr: bool = True):
-    search_uri = f"{base_url}/s/query?" if is_xhr else f"{base_url}/s?"
+def get_search_url(base_url: str, query: FilterableQuery):
+    search_uri = f"{base_url}/s?"
 
     search_dict = {"k": quote_plus(query.query_str)}
 
@@ -139,7 +143,7 @@ def get_top_level_feed(
     filters = []
 
     if isinstance(query, AmazonKeywordQuery):
-        home_page_url = get_search_url(base_url, query, is_xhr=False)
+        home_page_url = get_search_url(base_url, query)
 
         if query.strict:
             filters.append("strict")
@@ -220,17 +224,13 @@ def get_keyword_results(search_query: AmazonKeywordQuery):
 
     search_url = get_search_url(base_url, search_query)
 
-    json_dict = get_response_dict(search_url, search_query)
+    response = get_response(search_url, search_query)
 
-    results_dict = (
-        {
-            k: v
-            for k, v in json_dict.items()
-            if k.startswith("data-main-slot:search-result-")
-        }
-        if json_dict
-        else {}
-    )
+    response_soup = BeautifulSoup(response.content, features="html.parser")
+
+    results = response_soup.select("div.s-asin.s-result-item:not(.AdHolder)")
+
+    results_dict = {div['data-asin']:div for div in results}
 
     term_list: list[str] = []
 
@@ -244,13 +244,15 @@ def get_keyword_results(search_query: AmazonKeywordQuery):
 
     generated_items = []
 
-    for result in results_dict.values():
-        item_id: str = result.get("asin")
-        item_soup = BeautifulSoup(result.get("html"), features="html.parser")
+    for item_id, item_soup in results_dict.items():
 
         # select product title, use wildcard CSS selector for better international compatibility
-        item_title_soup = item_soup.select_one("[class*='s-line-clamp-']")
-        item_title = item_title_soup.text.strip() if item_title_soup else ""
+        item_title_soup = item_soup.select_one("h2.s-line-clamp-3")
+        item_title = item_title_soup['aria-label'].strip() if item_title_soup else ""
+
+        item_voucher_soup = item_soup.select_one("span.s-coupon-unclipped")
+        item_voucher = item_voucher_soup.text.strip() if item_voucher_soup else None
+        item_title_text = f"({item_voucher}) {item_title}" if item_voucher else item_title
 
         item_price_soup = item_soup.select_one(".a-price .a-offscreen")
         item_price = item_price_soup.text.strip() if item_price_soup else None
@@ -285,7 +287,7 @@ def get_keyword_results(search_query: AmazonKeywordQuery):
                 )
             else:
                 feed_item = generate_item(
-                    base_url, item_id, item_title, item_price_text, item_thumbnail_url
+                    base_url, item_id, item_title_text, item_price_text, item_thumbnail_url
                 )
                 generated_items.append(feed_item)
 
