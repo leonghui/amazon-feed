@@ -8,8 +8,12 @@ from flask import abort
 from requests.exceptions import JSONDecodeError, RequestException
 from requests_cache import AnyResponse
 
-from amazon_feed_data import (BOT_PATTERN, AmazonAsinQuery, AmazonKeywordQuery,
-                              FilterableQuery)
+from amazon_feed_data import (
+    BOT_PATTERN,
+    AmazonAsinQuery,
+    AmazonKeywordQuery,
+    FilterableQuery,
+)
 from json_feed_data import JSONFEED_VERSION_URL, JsonFeedItem, JsonFeedTopLevel
 
 ITEM_QUANTITY = 1
@@ -41,8 +45,8 @@ def handle_response(response: AnyResponse, query: FilterableQuery):
     try:
         return response.json()
     except JSONDecodeError as jdex:
-        logger.error(f'"{query.query_str}" - {type(jdex)}: {jdex}')
-        logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
+        logger.debug(f"{query.query_str} - {type(jdex)}: {jdex}")
+        logger.debug(f"{query.query_str} - dumping response: {response.text}")
         return None
 
 
@@ -55,29 +59,29 @@ def get_response_dict(url: str, query: FilterableQuery):
 
     session.headers = headers
 
-    logger.debug(f'"{query.query_str}" - querying endpoint: {url}')
+    logger.debug(f"{query.query_str} - querying endpoint: {url}")
 
     try:
         response = session.get(url)
     except RequestException as rex:
         reset_query_session(query)
-        logger.error(f'"{query.query_str}" - {type(rex)}: {rex}')
+        logger.error(f"{query.query_str} - {type(rex)}: {rex}")
         return None
 
     # return HTTP error code
     if not response.ok:
         if response.status_code == 503 or re.search(BOT_PATTERN, response.text):
-            bot_msg = f'"{query.query_str}" - API paywall triggered, resetting session'
+            bot_msg = f"{query.query_str} - API paywall triggered, resetting session"
             reset_query_session(query)
 
             logger.warning(bot_msg)
             abort(429, description=bot_msg)
         else:
-            logger.error(f'"{query.query_str}" - error from source')
-            logger.debug(f'"{query.query_str}" - dumping response: {response.text}')
+            logger.error(f"{query.query_str} - error from source")
+            logger.debug(f"{query.query_str} - dumping response: {response.text}")
             return None
     else:
-        logger.debug(f'"{query.query_str}" - response cached: {response.from_cache}')
+        logger.debug(f"{query.query_str} - response cached: {response.from_cache}")
 
     return handle_response(response, query)
 
@@ -309,20 +313,23 @@ def get_item_listing(query: AmazonAsinQuery):
 
     item_price_str: str = ""
 
+    json_feed = get_top_level_feed(base_url, query, [])
+
     if json_dict:
         # Assume one item is returned per response
         result = (
             json_dict.get("Value", {}).get("content", {}).get("twisterSlotJson", {})
         )
         item_price_str = result.get("price")
-
-    json_feed = get_top_level_feed(base_url, query, [])
+    else:
+        logger.error(query.query_str + " - no JSON response")
+        return json_feed
 
     if not item_price_str:
         logger.error(query.query_str + " - price not found")
         return json_feed
 
-    item_price_flt = '{0:.2f}'.format(float(item_price_str))
+    item_price_flt = "{0:.2f}".format(float(item_price_str))
 
     # exit if exceeded max price
     if item_price_str and query.max_price:
@@ -333,7 +340,7 @@ def get_item_listing(query: AmazonAsinQuery):
         )
 
         if item_price_flt > float(max_price_clean):
-            logger.info(f'"{query.query_str}" - exceeded max price {query.max_price}')
+            logger.info(f"{query.query_str} - exceeded max price {query.max_price}")
             return json_feed
 
     formatted_price = query.locale.currency + item_price_flt
