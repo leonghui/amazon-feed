@@ -1,5 +1,3 @@
-import random
-
 from flask import Flask, abort, jsonify, request
 from flask.logging import create_logger
 from requests_cache import CachedSession
@@ -7,7 +5,6 @@ from requests_cache import CachedSession
 from amazon_feed import get_item_listing, get_keyword_results
 from amazon_feed_data import (AmazonAsinQuery, AmazonKeywordQuery, FeedConfig,
                               FilterableQuery, QueryStatus)
-from mozilla_devices import DeviceType, get_useragent_list
 
 CACHE_EXPIRATION_SEC = 60
 
@@ -26,11 +23,9 @@ config = FeedConfig(
     logger=create_logger(app),
 )
 
-useragent_list = get_useragent_list(DeviceType.PHONES, config)
-
 
 def set_useragent():
-    config.useragent = random.choice(useragent_list)
+    config.useragent = "Amazon.com/30.4.0.100 (Android/14/Pixel 8a)"
     config.session.headers["User-Agent"] = config.useragent
     config.logger.debug(f"Using user-agent: {config.useragent}")
 

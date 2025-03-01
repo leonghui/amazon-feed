@@ -22,20 +22,35 @@ allowed_tags = {"a", "img", "p"}
 allowed_attributes = {"a": {"href", "title"}, "img": {"src"}}
 STREAM_DELIMITER = "&&&"  # application/json-amazonui-streaming
 
-# mimic headers from Firefox 84.0
+# mimic headers from Android app
 headers = {
     "Accept": "text/html,*/*",
     "Accept-Language": "en-US,en;q=0.5",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
     "X-Requested-With": "XMLHttpRequest",
     "Connection": "keep-alive",
-    "Content-Type": "application/json",
-    "TE": "Trailers",
+    "device-memory": "8",
+    "downlink": "9.3",
+    "dpr": "2",
+    "ect": "4g",
+    "Referer": "https://www.amazon.com/",
+    "rtt": "0",
+    "sec-ch-device-memory": "8",
+    "sec-ch-dpr": "2",
+    "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Android WebView";v="128"',
+    "sec-ch-ua-mobile": '?1',
+    "sec-ch-ua-platform": '"Android"',
+    "sec-ch-ua-platform-version": '""',
+    "sec-ch-viewport-width": "393",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "viewport-width": "393"
+
 }
 
 
-def reset_query_session(query: FilterableQuery):
-    query.config.useragent = ""
+def clear_session_cookies(query: FilterableQuery):
     query.config.session.cookies.clear()
 
 
@@ -64,7 +79,7 @@ def get_response_dict(url: str, query: FilterableQuery):
     try:
         response = session.get(url)
     except RequestException as rex:
-        reset_query_session(query)
+        clear_session_cookies(query)
         logger.error(f"{query.query_str} - {type(rex)}: {rex}")
         return None
 
@@ -72,7 +87,7 @@ def get_response_dict(url: str, query: FilterableQuery):
     if not response.ok:
         if response.status_code == 503 or re.search(BOT_PATTERN, response.text):
             bot_msg = f"{query.query_str} - API paywall triggered, resetting session"
-            reset_query_session(query)
+            clear_session_cookies(query)
 
             logger.warning(bot_msg)
             abort(429, description=bot_msg)
