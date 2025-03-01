@@ -23,6 +23,10 @@ class AmazonLocale:
 locale_list = [
     AmazonLocale("AU", "www.amazon.com.au", "$"),
     AmazonLocale("SG", "www.amazon.sg", "S$"),
+    AmazonLocale("DE", "www.amazon.de", "€"),
+    AmazonLocale("FR", "www.amazon.fr", "€"),
+    AmazonLocale("IT", "www.amazon.it", "€"),
+    AmazonLocale("ES", "www.amazon.es", "€"),
     AmazonLocale(
         "UK",
         "www.amazon.co.uk",
