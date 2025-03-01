@@ -307,35 +307,36 @@ def get_item_listing(query: AmazonAsinQuery):
 
     json_dict = get_response_dict(item_dimension_url, query)
 
-    item_price: str = ""
+    item_price_str: str = ""
 
     if json_dict:
         # Assume one item is returned per response
         result = (
             json_dict.get("Value", {}).get("content", {}).get("twisterSlotJson", {})
         )
-        item_price = result.get("price")
+        item_price_str = result.get("price")
 
     json_feed = get_top_level_feed(base_url, query, [])
 
-    if not item_price:
+    if not item_price_str:
         logger.error(query.query_str + " - price not found")
         return json_feed
 
+    item_price_flt = '{0:.2f}'.format(float(item_price_str))
+
     # exit if exceeded max price
-    if item_price and query.max_price:
-        item_price_clean = "".join(filter(str.isnumeric, item_price))
+    if item_price_str and query.max_price:
 
         # handle currencies without decimal places
         max_price_clean = (
-            query.max_price + "00" if "." in item_price else query.max_price
+            query.max_price + "00" if "." in item_price_str else query.max_price
         )
 
-        if float(item_price_clean) > float(max_price_clean):
+        if item_price_flt > float(max_price_clean):
             logger.info(f'"{query.query_str}" - exceeded max price {query.max_price}')
             return json_feed
 
-    formatted_price = query.locale.currency + item_price
+    formatted_price = query.locale.currency + item_price_flt
 
     feed_item = generate_item(base_url, item_id, "", formatted_price, "")
 
