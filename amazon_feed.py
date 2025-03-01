@@ -33,7 +33,6 @@ headers = {
     "downlink": "9.3",
     "dpr": "2",
     "ect": "4g",
-    "Referer": "https://www.amazon.com/",
     "rtt": "0",
     "sec-ch-device-memory": "8",
     "sec-ch-dpr": "2",

@@ -23,13 +23,6 @@ config = FeedConfig(
     logger=create_logger(app),
 )
 
-
-def set_useragent():
-    config.useragent = "Amazon.com/30.4.0.100 (Android/14/Pixel 8a)"
-    config.session.headers["User-Agent"] = config.useragent
-    config.logger.debug(f"Using user-agent: {config.useragent}")
-
-
 def generate_response(query: FilterableQuery):
     if not query.status.ok:
         abort(400, description="Errors found: " + ", ".join(query.status.errors))
@@ -56,9 +49,6 @@ def process_listing():
         "strict_str": request.args.get("strict"),
     }
 
-    if not config.useragent:
-        set_useragent()
-
     listing_query = AmazonKeywordQuery(
         status=QueryStatus(), config=config, **list_request_dict
     )
@@ -74,9 +64,6 @@ def process_item():
         "min_price": None,
         "max_price": request.args.get("max_price"),
     }
-
-    if not config.useragent:
-        set_useragent()
 
     item_query = AmazonAsinQuery(
         status=QueryStatus(), config=config, **item_request_dict

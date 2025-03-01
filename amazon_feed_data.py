@@ -51,7 +51,7 @@ def string_to_boolean(string: str):
 class FeedConfig:
     session: CachedSession
     logger: Logger
-    useragent: str = ""
+    useragent: str = "Amazon.com/30.4.0.100 (Android/14/Pixel 8a)"
 
 
 @dataclass
