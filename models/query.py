@@ -3,10 +3,9 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import override
 
-from requests_cache import CachedSession
+from requests import Session
 
 ASIN_PATTERN = r"^(B[\dA-Z]{9}|\d{9}(X|\d))$"
-BOT_PATTERN = r"automated access|captcha"
 
 
 @dataclass
@@ -48,10 +47,10 @@ def string_to_boolean(string: str) -> bool:
 
 
 @dataclass()
-class FeedConfig:
-    session: CachedSession
+class QueryConfig:
+    session: Session
     logger: Logger
-    useragent: str = "Amazon.com/30.4.0.100 (Android/14/Pixel 8a)"
+    useragent: str
 
 
 @dataclass
@@ -66,7 +65,7 @@ class QueryStatus:
 @dataclass
 class _BaseQuery:
     status: QueryStatus
-    config: FeedConfig
+    config: QueryConfig
     query_str: str
     country: str = "US"
     locale: AmazonLocale = field(default=default_locale)
@@ -113,22 +112,7 @@ class _AmazonKeywordFilter:
 
 @dataclass
 class AmazonKeywordQuery(_AmazonKeywordFilter, FilterableQuery):
-    query_str: str = "AMD"
-
-    def from_item_query(self):
-        assert isinstance(self, AmazonAsinQuery)
-
-        listing_query: AmazonKeywordQuery = AmazonKeywordQuery(
-            status=self.status,
-            query_str=self.query_str,
-            config=self.config,
-            country=self.country,
-            min_price=self.min_price,
-            max_price=self.max_price,
-            strict_str="true",
-        )
-
-        return listing_query
+    query_str: str
 
     def __post_init__(self) -> None:
         if not self.query_str:
@@ -143,7 +127,7 @@ class AmazonKeywordQuery(_AmazonKeywordFilter, FilterableQuery):
 
 @dataclass
 class AmazonAsinQuery(FilterableQuery):
-    query_str: str = "B08166SLDF"  #  AMD Ryzen 5 5600X Processor
+    query_str: str
 
     def __post_init__(self) -> None:
         if not re.match(ASIN_PATTERN, self.query_str):

@@ -1,5 +1,5 @@
 beautifulsoup4
+curl-adapter
 flask
 nh3
 requests
-requests-cache
