@@ -14,5 +14,5 @@ USER app
 
 EXPOSE 5000
 ENTRYPOINT ["python"]
-CMD ["server.py"]
-HEALTHCHECK --start-period=1m --interval=30m CMD wget -qO - 127.0.0.1:5000
+CMD ["app.py"]
+HEALTHCHECK --start-period=1m --interval=30m CMD wget -qO - http://127.0.0.1:5000/healthcheck
