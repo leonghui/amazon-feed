@@ -75,12 +75,10 @@ def get_response(url: str, query: FilterableQuery) -> AnyResponse:
     headers["User-Agent"] = query.config.useragent
     headers["Referer"] = "https://" + query.locale.domain + "/"
 
-    session.headers = headers
-
     logger.debug(msg=f"{query.query_str} - querying endpoint: {url}")
 
     try:
-        response: AnyResponse = session.get(url)
+        response: AnyResponse = session.get(url, headers=headers)
     except RequestException as rex:
         clear_session_cookies(query)
         logger.error(msg=f"{query.query_str} - {type(rex)}: {rex}")
