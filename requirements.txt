@@ -1,5 +1,5 @@
 beautifulsoup4
-curl-adapter
+curl_cffi
 flask
 nh3
 requests

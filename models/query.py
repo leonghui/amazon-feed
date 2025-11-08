@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import override
 
-from requests import Session
+from curl_cffi import Session
 
 ASIN_PATTERN = r"^(B[\dA-Z]{9}|\d{9}(X|\d))$"
 

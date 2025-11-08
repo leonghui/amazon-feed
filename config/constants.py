@@ -17,7 +17,7 @@ HEADERS: dict[str, str] = {
     "rtt": "0",
     "sec-ch-device-memory": "8",
     "sec-ch-dpr": "2",
-    "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Android WebView";v="128"',
+    "sec-ch-ua": '"Chromium";v="131", "Not;A=Brand";v="24", "Android WebView";v="131"',
     "sec-ch-ua-mobile": "?1",
     "sec-ch-ua-platform": '"Android"',
     "sec-ch-ua-platform-version": '""',
@@ -28,4 +28,7 @@ HEADERS: dict[str, str] = {
     "viewport-width": "393",
 }
 
-DEFAULT_USER_AGENT = "Amazon.com/30.4.0.100 (Android/14/Pixel 8a)"
+DEFAULT_USER_AGENT = "Amazon.com/30.4.0.100 (Android/15/Pixel 8a)"
+
+# https://curl-cffi.readthedocs.io/en/latest/impersonate/targets.html
+CFFI_IMPERSONATE = "chrome131_android"

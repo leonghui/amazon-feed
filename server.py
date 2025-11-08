@@ -2,11 +2,9 @@ from http import HTTPStatus
 from logging import Logger
 
 from flask import Flask, Response as FlaskResponse, jsonify, request
-from requests import Response, Session
-from requests.sessions import Session
+from curl_cffi import Response, Session
 
 from config.constants import DEFAULT_USER_AGENT
-from config.curl_adapter import curl_cffi_adapter
 from models.feed import JsonFeedItem, JsonFeedTopLevel
 from models.query import AmazonAsinQuery, AmazonKeywordQuery, QueryConfig, QueryStatus
 from parsers.item_parser import parse_item_details
@@ -40,8 +38,6 @@ class AmazonFeedGenerator:
 
     def create_query_config(self) -> QueryConfig:
         session: Session = Session()
-        session.mount(prefix="http://", adapter=curl_cffi_adapter)
-        session.mount(prefix="https://", adapter=curl_cffi_adapter)
 
         return QueryConfig(
             session=session,

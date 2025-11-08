@@ -1,11 +1,11 @@
 from logging import Logger
 import re
 
+from curl_cffi.requests.exceptions import RequestException
 from flask import abort
-from requests.exceptions import RequestException
-from requests import Response, Session
+from curl_cffi import Response, Session
 
-from config.constants import HEADERS
+from config.constants import CFFI_IMPERSONATE, HEADERS
 from models.query import FilterableQuery
 
 
@@ -34,7 +34,9 @@ def get_response(url: str, query: FilterableQuery) -> Response:
     logger.debug(msg=f"{query.query_str} - querying: {url}")
 
     try:
-        response: Response = session.get(url, headers=headers)
+        response: Response = session.get(
+            url, impersonate=CFFI_IMPERSONATE, default_headers=False, headers=headers
+        )
     except RequestException as rex:
         clear_session_cookies(query)
         logger.error(msg=f"{query.query_str} - Request error: {rex}")
