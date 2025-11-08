@@ -32,6 +32,7 @@ class AmazonFeedGenerator:
         """
         Define API routes for the application.
         """
+        self.app.route(rule="/", methods=["GET"])(self.keyword_search)
         self.app.route(rule="/query", methods=["GET"])(self.keyword_search)
         self.app.route(rule="/asin", methods=["GET"])(self.asin_lookup)
         self.app.route(rule="/healthcheck", methods=["GET"])(self.healthcheck)
@@ -48,9 +49,6 @@ class AmazonFeedGenerator:
     def keyword_search(self) -> tuple[FlaskResponse, int]:
         """
         Handle keyword search requests.
-
-        Returns:
-            dict: JSON feed of search results
         """
         try:
             # Extract parameters
@@ -104,9 +102,6 @@ class AmazonFeedGenerator:
     def asin_lookup(self) -> tuple[FlaskResponse, int]:
         """
         Handle ASIN lookup requests.
-
-        Returns:
-            dict: JSON feed of search result
         """
         try:
             # Extract parameters
