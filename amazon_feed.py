@@ -1,29 +1,34 @@
-import re
 from datetime import datetime
-from urllib.parse import quote_plus, urlencode, urlparse
+from logging import Logger
+import re
+from urllib.parse import ParseResult, quote_plus, urlencode, urlparse
 
-import nh3
 from bs4 import BeautifulSoup
+from bs4._typing import _AtMostOneTag, _AttributeValue
+from bs4.element import ResultSet, Tag
 from flask import abort
+import nh3
 from requests.exceptions import JSONDecodeError, RequestException
-from requests_cache import AnyResponse
+from requests_cache.models import AnyResponse
+from requests_cache.session import CachedSession
 
 from amazon_feed_data import (
-    BOT_PATTERN,
     AmazonAsinQuery,
     AmazonKeywordQuery,
+    AmazonLocale,
+    BOT_PATTERN,
     FilterableQuery,
 )
 from json_feed_data import JSONFEED_VERSION_URL, JsonFeedItem, JsonFeedTopLevel
 
 ITEM_QUANTITY = 1
 
-allowed_tags = {"a", "img", "p"}
-allowed_attributes = {"a": {"href", "title"}, "img": {"src"}}
+allowed_tags: set[str] = {"a", "img", "p"}
+allowed_attributes: dict[str, set[str]] = {"a": {"href", "title"}, "img": {"src"}}
 STREAM_DELIMITER = "&&&"  # application/json-amazonui-streaming
 
 # mimic headers from Android app
-headers = {
+headers: dict[str, str] = {
     "Accept": "text/html,*/*",
     "Accept-Language": "en-US,en;q=0.5",
     "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -37,77 +42,79 @@ headers = {
     "sec-ch-device-memory": "8",
     "sec-ch-dpr": "2",
     "sec-ch-ua": '"Chromium";v="128", "Not;A=Brand";v="24", "Android WebView";v="128"',
-    "sec-ch-ua-mobile": '?1',
+    "sec-ch-ua-mobile": "?1",
     "sec-ch-ua-platform": '"Android"',
     "sec-ch-ua-platform-version": '""',
     "sec-ch-viewport-width": "393",
     "Sec-Fetch-Dest": "empty",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-origin",
-    "viewport-width": "393"
-
+    "viewport-width": "393",
 }
 
 
-def clear_session_cookies(query: FilterableQuery):
+def clear_session_cookies(query: FilterableQuery) -> None:
     query.config.session.cookies.clear()
 
 
 def handle_response(response: AnyResponse, query: FilterableQuery):
-    logger = query.config.logger
+    logger: Logger = query.config.logger
 
     try:
         return response.json()
     except JSONDecodeError as jdex:
-        logger.debug(f"{query.query_str} - {type(jdex)}: {jdex}")
-        logger.debug(f"{query.query_str} - dumping response: {response.text}")
+        logger.debug(msg=f"{query.query_str} - {type(jdex)}: {jdex}")
+        logger.debug(msg=f"{query.query_str} - dumping response: {response.text}")
         return None
 
 
-def get_response(url: str, query: FilterableQuery):
-    logger = query.config.logger
-    session = query.config.session
+def get_response(url: str, query: FilterableQuery) -> AnyResponse:
+    logger: Logger = query.config.logger
+    session: CachedSession = query.config.session
 
     headers["User-Agent"] = query.config.useragent
     headers["Referer"] = "https://" + query.locale.domain + "/"
 
     session.headers = headers
 
-    logger.debug(f"{query.query_str} - querying endpoint: {url}")
+    logger.debug(msg=f"{query.query_str} - querying endpoint: {url}")
 
     try:
-        response = session.get(url)
+        response: AnyResponse = session.get(url)
     except RequestException as rex:
         clear_session_cookies(query)
-        logger.error(f"{query.query_str} - {type(rex)}: {rex}")
-        abort(500)
+        logger.error(msg=f"{query.query_str} - {type(rex)}: {rex}")
+        abort(code=500)
 
     # return HTTP error code
     if not response.ok:
         if response.status_code == 503 or re.search(BOT_PATTERN, response.text):
-            bot_msg = f"{query.query_str} - API paywall triggered, resetting session"
+            bot_msg: str = (
+                f"{query.query_str} - API paywall triggered, resetting session"
+            )
             clear_session_cookies(query)
 
-            logger.warning(bot_msg)
-            abort(429, description=bot_msg)
+            logger.warning(msg=bot_msg)
+            abort(code=429, description=bot_msg)
         else:
-            logger.error(f"{query.query_str} - error from source")
-            logger.debug(f"{query.query_str} - dumping response: {response.text}")
-            abort(500)
+            logger.error(msg=f"{query.query_str} - error from source")
+            logger.debug(msg=f"{query.query_str} - dumping response: {response.text}")
+            abort(code=500)
     else:
-        logger.debug(f"{query.query_str} - response cached: {response.from_cache}")
+        logger.debug(msg=f"{query.query_str} - response cached: {response.from_cache}")
 
     return response
 
+
 def get_response_dict(url: str, query: FilterableQuery):
-    response = get_response(url, query)
+    response: AnyResponse = get_response(url, query)
     return handle_response(response, query)
 
 
 def get_search_url(base_url: str, query: FilterableQuery):
-    search_uri = f"{base_url}/s?"
+    search_uri: str = f"{base_url}/s?"
 
-    search_dict = {"k": quote_plus(query.query_str)}
+    search_dict: dict[str, str] = {"k": quote_plus(string=query.query_str)}
 
     price_param_value = min_price = max_price = None
 
@@ -125,31 +132,31 @@ def get_search_url(base_url: str, query: FilterableQuery):
     if price_param_value:
         search_dict["rh"] = price_param_value
 
-    return search_uri + urlencode(search_dict)
+    return search_uri + urlencode(query=search_dict)
 
 
-def get_item_url(base_url: str, item_id: str):
+def get_item_url(base_url: str, item_id: str) -> str:
     return base_url + "/gp/product/" + item_id
 
 
 def get_top_level_feed(
     base_url: str, query: FilterableQuery, feed_items: list[JsonFeedItem]
-):
-    parse_object = urlparse(base_url)
-    domain = parse_object.netloc
+) -> JsonFeedTopLevel:
+    parse_object: ParseResult = urlparse(url=base_url)
+    domain: str = parse_object.netloc
 
-    title_strings = [domain, query.query_str]
+    title_strings: list[str] = [domain, query.query_str]
 
     filters = []
 
     if isinstance(query, AmazonKeywordQuery):
-        home_page_url = get_search_url(base_url, query)
+        home_page_url: str = get_search_url(base_url, query)
 
         if query.strict:
             filters.append("strict")
 
     elif isinstance(query, AmazonAsinQuery):
-        home_page_url = get_item_url(base_url, query.query_str)
+        home_page_url = get_item_url(base_url, item_id=query.query_str)
 
     if query.min_price:
         filters.append(f"min {query.locale.currency}{query.min_price}")
@@ -160,7 +167,7 @@ def get_top_level_feed(
     if filters:
         title_strings.append(f"filtered by {', '.join(filters)}")
 
-    json_feed = JsonFeedTopLevel(
+    json_feed: JsonFeedTopLevel = JsonFeedTopLevel(
         version=JSONFEED_VERSION_URL,
         items=feed_items,
         title=" - ".join(title_strings),
@@ -177,35 +184,37 @@ def generate_item(
     item_title: str,
     item_price_text: str,
     item_thumbnail_url: str,
-):
-    item_title_text = item_title.strip() if item_title else item_id
+) -> JsonFeedItem:
+    item_title_text: str = item_title.strip() if item_title else item_id
 
-    item_thumbnail_html = f'<img src="{item_thumbnail_url}" />'
+    item_thumbnail_html: str = f'<img src="{item_thumbnail_url}" />'
 
-    timestamp = datetime.now().timestamp()
+    timestamp: float = datetime.now().timestamp()
 
-    item_link_url = get_item_url(base_url, item_id)
-    item_link_html = f'<p><a href="{item_link_url}">Product Link</a></p>'
+    item_link_url: str = get_item_url(base_url, item_id)
+    item_link_html: str = f'<p><a href="{item_link_url}">Product Link</a></p>'
 
-    item_add_to_cart_url = (
+    item_add_to_cart_url: str = (
         f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
     )
-    item_add_to_cart_html = f'<p><a href="{item_add_to_cart_url}">Add to Cart</a></p>'
+    item_add_to_cart_html: str = (
+        f'<p><a href="{item_add_to_cart_url}">Add to Cart</a></p>'
+    )
 
-    content_body_list = [item_link_html, item_add_to_cart_html]
+    content_body_list: list[str] = [item_link_html, item_add_to_cart_html]
 
     if item_thumbnail_url:
         content_body_list.insert(0, item_thumbnail_html)
 
-    content_body = "".join(content_body_list)
+    content_body: str = "".join(content_body_list)
 
-    sanitized_html = nh3.clean(
-        content_body, tags=allowed_tags, attributes=allowed_attributes
+    sanitized_html: str = nh3.clean(
+        html=content_body, tags=allowed_tags, attributes=allowed_attributes
     ).replace(
         "&amp;", "&"
     )  # restore raw ampersands: https://github.com/mozilla/bleach/issues/192
 
-    feed_item = JsonFeedItem(
+    feed_item: JsonFeedItem = JsonFeedItem(
         id=datetime.utcfromtimestamp(timestamp).isoformat("T"),
         url=item_link_url,
         title=f"[{item_price_text}] {item_title_text}",
@@ -217,42 +226,51 @@ def generate_item(
     return feed_item
 
 
-def get_keyword_results(search_query: AmazonKeywordQuery):
-    logger = search_query.config.logger
+def get_keyword_results(search_query: AmazonKeywordQuery) -> JsonFeedTopLevel:
+    logger: Logger = search_query.config.logger
 
-    base_url = "https://" + search_query.locale.domain
+    base_url: str = "https://" + search_query.locale.domain
 
-    search_url = get_search_url(base_url, search_query)
+    search_url: str = get_search_url(base_url, query=search_query)
 
-    response = get_response(search_url, search_query)
+    response: AnyResponse = get_response(url=search_url, query=search_query)
 
-    response_soup = BeautifulSoup(response.content, features="html.parser")
+    response_soup: BeautifulSoup = BeautifulSoup(
+        markup=response.content, features="html.parser"
+    )
 
-    results = response_soup.select("div.s-asin.s-result-item:not(.AdHolder)")
+    results: ResultSet[Tag] = response_soup.select(
+        selector="div.s-asin.s-result-item:not(.AdHolder)"
+    )
 
-    results_dict = {div['data-asin']:div for div in results}
+    results_dict: dict[_AttributeValue, Tag] = {
+        div["data-asin"]: div for div in results
+    }
 
     term_list: list[str] = []
 
     if search_query.strict:
-        term_list = set([term.lower() for term in search_query.query_str.split()])
+        term_list: list[str] = set(
+            [term.lower() for term in search_query.query_str.split()]
+        )
         logger.debug(
-            f'"{search_query.query_str}" - strict mode enabled, title or asin must contain: {term_list}'
+            msg=f'"{search_query.query_str}" - strict mode enabled, title or asin must contain: {term_list}'
         )
 
-    results_count = len(results_dict)
+    results_count: int = len(results_dict)
 
     generated_items = []
 
     for item_id, item_soup in results_dict.items():
-
         # select product title, use wildcard CSS selector for better international compatibility
         item_title_soup = item_soup.select_one("h2.s-line-clamp-3")
-        item_title = item_title_soup['aria-label'].strip() if item_title_soup else ""
+        item_title = item_title_soup["aria-label"].strip() if item_title_soup else ""
 
         item_voucher_soup = item_soup.select_one("span.s-coupon-unclipped")
         item_voucher = item_voucher_soup.text.strip() if item_voucher_soup else None
-        item_title_text = f"({item_voucher}) {item_title}" if item_voucher else item_title
+        item_title_text = (
+            f"({item_voucher}) {item_title}" if item_voucher else item_title
+        )
 
         item_price_soup = item_soup.select_one(".a-price .a-offscreen")
         item_price = item_price_soup.text.strip() if item_price_soup else None
@@ -265,11 +283,13 @@ def get_keyword_results(search_query: AmazonKeywordQuery):
                 price_strings[0] + price_strings[1] + "." + price_strings[2]
             )
 
-        item_thumbnail_soup = item_soup.find(
+        item_thumbnail_soup: _AtMostOneTag = item_soup.find(
             attrs={"data-component-type": "s-product-image"}
         )
-        item_thumbnail_img_soup = item_thumbnail_soup.select_one(".s-image")
-        item_thumbnail_url = (
+        item_thumbnail_img_soup: Tag | None = item_thumbnail_soup.select_one(
+            selector=".s-image"
+        )
+        item_thumbnail_url: _AttributeValue | None = (
             item_thumbnail_img_soup.get("src") if item_thumbnail_img_soup else None
         )
 
@@ -283,53 +303,59 @@ def get_keyword_results(search_query: AmazonKeywordQuery):
                 )
             ):
                 logger.debug(
-                    f'"{search_query.query_str}" - strict mode - removed {item_id} "{item_title}"'
+                    msg=f'"{search_query.query_str}" - strict mode - removed {item_id} "{item_title}"'
                 )
             else:
-                feed_item = generate_item(
-                    base_url, item_id, item_title_text, item_price_text, item_thumbnail_url
+                feed_item: JsonFeedItem = generate_item(
+                    base_url,
+                    item_id,
+                    item_title_text,
+                    item_price_text,
+                    item_thumbnail_url,
                 )
                 generated_items.append(feed_item)
 
     logger.info(
-        f'"{search_query.query_str}" - found {results_count} - published {len(generated_items)}'
+        msg=f'"{search_query.query_str}" - found {results_count} - published {len(generated_items)}'
     )
 
-    json_feed = get_top_level_feed(base_url, search_query, generated_items)
+    json_feed: JsonFeedTopLevel = get_top_level_feed(
+        base_url, query=search_query, feed_items=generated_items
+    )
 
     return json_feed
 
 
-def get_dimension_url(query: AmazonAsinQuery, item_id: str):
+def get_dimension_url(query: AmazonAsinQuery, item_id: str) -> str:
     #   Call the "dimension" endpoint which is used on mobile pages
     #   to display price and optionally availability for product variants
 
-    locale_data = query.locale
-    base_url = "https://" + locale_data.domain
-    dimension_endpoint = base_url + "/gp/product/ajax?"
+    locale_data: AmazonLocale = query.locale
+    base_url: str = "https://" + locale_data.domain
+    dimension_endpoint: str = base_url + "/gp/product/ajax?"
 
-    query_dict = {
+    query_dict: dict[str, str] = {
         "asinList": item_id,
         "experienceId": "twisterDimensionSlotsDefault",
         "asin": item_id,
         "deviceType": "mobile",
     }
 
-    return dimension_endpoint + urlencode(query_dict)
+    return dimension_endpoint + urlencode(query=query_dict)
 
 
-def get_item_listing(query: AmazonAsinQuery):
-    logger = query.config.logger
+def get_item_listing(query: AmazonAsinQuery) -> JsonFeedTopLevel:
+    logger: Logger = query.config.logger
 
-    item_id = query.query_str
-    base_url = "https://" + query.locale.domain
-    item_dimension_url = get_dimension_url(query, item_id)
+    item_id: str = query.query_str
+    base_url: str = "https://" + query.locale.domain
+    item_dimension_url: str = get_dimension_url(query, item_id)
 
-    json_dict = get_response_dict(item_dimension_url, query)
+    json_dict = get_response_dict(url=item_dimension_url, query=query)
 
     item_price_str: str = ""
 
-    json_feed = get_top_level_feed(base_url, query, [])
+    json_feed: JsonFeedTopLevel = get_top_level_feed(base_url, query, feed_items=[])
 
     if json_dict:
         # Assume one item is returned per response
@@ -338,25 +364,31 @@ def get_item_listing(query: AmazonAsinQuery):
         )
         item_price_str = result.get("price")
     else:
-        logger.error(query.query_str + " - no JSON response")
+        logger.error(msg=query.query_str + " - no JSON response")
         return json_feed
 
     if not item_price_str:
-        logger.error(query.query_str + " - price not found")
+        logger.error(msg=query.query_str + " - price not found")
         return json_feed
 
-    item_price = "{0:.2f}".format(float(item_price_str))
+    item_price: str = "{0:.2f}".format(float(item_price_str))
 
     # exit if exceeded max price
     if item_price_str and query.max_price:
         if float(item_price) > float(query.max_price):
-            logger.info(f"{query.query_str} - exceeded max price {query.max_price}")
+            logger.info(msg=f"{query.query_str} - exceeded max price {query.max_price}")
             return json_feed
 
-    formatted_price = query.locale.currency + item_price
+    formatted_price: str = query.locale.currency + item_price
 
-    feed_item = generate_item(base_url, item_id, "", formatted_price, "")
+    feed_item: JsonFeedItem = generate_item(
+        base_url,
+        item_id,
+        item_title="",
+        item_price_text=formatted_price,
+        item_thumbnail_url="",
+    )
 
-    json_feed = get_top_level_feed(base_url, query, [feed_item])
+    json_feed = get_top_level_feed(base_url, query, feed_items=[feed_item])
 
     return json_feed
