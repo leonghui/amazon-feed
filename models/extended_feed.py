@@ -27,7 +27,8 @@ class Product(Thing):
 
 
 class ExtendedJsonFeedItem(JsonFeedItem):
-    _linked_data: Product | None = None
+    # Product schema encapsulated in <script type="application/ld+json">
+    _linked_data: str | None = None
 
 
 class ExtendedJsonFeedTopLevel(JsonFeedTopLevel):

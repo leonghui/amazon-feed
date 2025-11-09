@@ -72,7 +72,9 @@ def generate_item(
         content_html=sanitized_html,
         image=HttpUrl(url=item_thumbnail_url) if item_thumbnail_url else None,
         date_published=timestamp,
-        _linked_data=item_ld,
+        _linked_data='<script type="application/ld+json">'
+        + item_ld.model_dump_json(exclude_none=True)
+        + "</script>",
     )
 
 
