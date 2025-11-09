@@ -12,7 +12,7 @@ def validate_country(value: str) -> str:
     return value.upper()
 
 
-def validate_locale(value: str) -> AmazonLocale:
+def convert_to_locale(value: str) -> AmazonLocale:
     country_code: str = value
 
     return next((locale for locale in locale_list if locale.code == country_code))

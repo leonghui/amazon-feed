@@ -6,7 +6,12 @@ from fastapi import Query
 from pydantic import AfterValidator, BaseModel, Field
 
 from models.amazon import AmazonLocale, default_locale
-from models.validators import validate_asin, validate_country, validate_query_str
+from models.validators import (
+    validate_asin,
+    validate_country,
+    validate_price_filters,
+    validate_query_str,
+)
 
 
 def string_to_boolean(string: str) -> bool:
@@ -34,8 +39,7 @@ class _BaseQuery(BaseModel):
     status: QueryStatus
     config: QueryConfig
     query_str: str
-    country: Annotated[str, AfterValidator(func=validate_country)] = "US"
-    locale: Annotated[AmazonLocale, AfterValidator(func=validate_country)] = (
+    locale: AmazonLocale = (
         default_locale
     )
 
@@ -59,7 +63,13 @@ class AmazonAsinQuery(FilterableQuery):
 
 class QueryParams(BaseModel):
     q: str = Field(Query(..., description="Search query"))
-    country: str = Field(Query("us", description="Country code"))
-    min_price: int | None = Field(Query(None, description="Minimum price"))
-    max_price: int | None = Field(Query(None, description="Maximum price"))
+    country: Annotated[str, AfterValidator(func=validate_country)] = Field(
+        Query("us", description="Country code")
+    )
+    min_price: Annotated[int, AfterValidator(func=validate_price_filters)] | None = (
+        Field(Query(None, description="Minimum price"))
+    )
+    max_price: Annotated[int, AfterValidator(func=validate_price_filters)] | None = (
+        Field(Query(None, description="Maximum price"))
+    )
     strict: bool | None = Field(Query(False, description="Strict mode"))

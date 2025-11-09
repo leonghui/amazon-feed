@@ -13,6 +13,7 @@ from models.query import (
     QueryParams,
     QueryStatus,
 )
+from models.validators import convert_to_locale
 from parsers.item_parser import parse_item_details
 from parsers.search_parser import parse_search_results
 from services.item_generator import get_top_level_feed
@@ -31,7 +32,6 @@ class AmazonFeedGenerator:
         # Setup can be done here if needed
 
     def create_query_config(self) -> QueryConfig:
-
         return QueryConfig(
             session=Session(),
             logger=logger,
@@ -54,7 +54,7 @@ async def keyword_search(params: QueryParams = Depends()) -> JSONResponse:
         query: AmazonKeywordQuery = AmazonKeywordQuery(
             status=QueryStatus(),
             query_str=params.q,
-            country=params.country,
+            locale=convert_to_locale(value=params.country),
             min_price=params.min_price,
             max_price=params.max_price,
             strict=params.strict,
@@ -95,7 +95,7 @@ async def asin_lookup(params: QueryParams = Depends()) -> JSONResponse:
         query: AmazonAsinQuery = AmazonAsinQuery(
             status=QueryStatus(),
             query_str=params.q,
-            country=params.country,
+            locale=convert_to_locale(value=params.country),
             min_price=params.min_price,
             max_price=params.max_price,
             config=config,
