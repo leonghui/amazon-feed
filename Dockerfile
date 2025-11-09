@@ -12,7 +12,7 @@ RUN pip install -r requirements.txt
 
 USER app
 
-EXPOSE 5000
+EXPOSE 8000
 ENTRYPOINT ["python"]
 CMD ["app.py"]
-HEALTHCHECK --start-period=1m --interval=30m CMD wget -qO - http://127.0.0.1:5000/healthcheck
+HEALTHCHECK --start-period=1m --interval=30m CMD wget -qO - http://127.0.0.1:8000/healthcheck

@@ -1,5 +1,6 @@
 beautifulsoup4
 curl_cffi
-flask
+fastapi
 nh3
-requests
+pydantic
+uvicorn

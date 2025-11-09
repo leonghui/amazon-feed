@@ -1,8 +1,8 @@
-from http import HTTPStatus
 from logging import Logger
 
-from flask import Flask, Response as FlaskResponse, jsonify, request
 from curl_cffi import Response, Session
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse
 
 from config.constants import DEFAULT_USER_AGENT
 from models.feed import JsonFeedItem, JsonFeedTopLevel
@@ -14,75 +14,61 @@ from services.response_handler import get_response
 from services.url_builder import get_dimension_url, get_search_url
 from utils.logging import setup_logger
 
+app: FastAPI = FastAPI()
+logger: Logger = setup_logger(name="amazon_feed_generator", level="INFO")
+
+
 class AmazonFeedGenerator:
     def __init__(self) -> None:
         """
         Initialize the Amazon Feed Generator with configuration and setup.
         """
-        # Flask application setup
-        self.app: Flask = Flask(import_name=__name__)
-
-        # Configure routes
-        self.setup_routes()
-
-        # Logging setup
-        self.logger: Logger = setup_logger(name="amazon_feed_generator", level="INFO")
-
-    def setup_routes(self) -> None:
-        """
-        Define API routes for the application.
-        """
-        self.app.route(rule="/", methods=["GET"])(self.keyword_search)
-        self.app.route(rule="/query", methods=["GET"])(self.keyword_search)
-        self.app.route(rule="/asin", methods=["GET"])(self.asin_lookup)
-        self.app.route(rule="/healthcheck", methods=["GET"])(self.healthcheck)
+        # Setup can be done here if needed
 
     def create_query_config(self) -> QueryConfig:
         session: Session = Session()
 
         return QueryConfig(
             session=session,
-            logger=self.logger,
+            logger=logger,
             useragent=DEFAULT_USER_AGENT,
         )
 
-    def keyword_search(self) -> tuple[FlaskResponse, int]:
-        """
-        Handle keyword search requests.
-        """
-        try:
-            # Extract parameters
-            query_str: str = request.args.get("q", "")
-            country: str = request.args.get("country", "us")
-            min_price: str | None = request.args.get("min_price", "")
-            max_price: str | None = request.args.get("max_price", "")
-            strict: bool = request.args.get("strict", "false").lower() == "true"
 
-            # Validate input
-            if not query_str:
-                return jsonify(
-                    {"error": "Query string is required"}
-                ), HTTPStatus.BAD_REQUEST
+feed_generator: AmazonFeedGenerator = AmazonFeedGenerator()
 
-            # Create query configuration
-            config: QueryConfig = self.create_query_config()
 
-            # Create keyword query
-            query: AmazonKeywordQuery = AmazonKeywordQuery(
-                status=QueryStatus(),
-                query_str=query_str,
-                country=country,
-                min_price=min_price,
-                max_price=max_price,
-                strict=strict,
-                config=config,
-            )
+@app.get("/")
+@app.get("/query")
+async def keyword_search(
+    q: str = Query(..., description="Search query"),
+    country: str = Query("us", description="Country code"),
+    min_price: str = Query(None, description="Minimum price"),
+    max_price: str = Query(None, description="Maximum price"),
+    strict: bool = Query(False, description="Strict mode"),
+) -> JSONResponse:
+    """
+    Handle keyword search requests.
+    """
+    try:
+        config: QueryConfig = feed_generator.create_query_config()
 
-            # Perform search and generate feed
-            base_url: str = f"https://{query.locale.domain}"
-            search_url: str = get_search_url(base_url, query)
+        query: AmazonKeywordQuery = AmazonKeywordQuery(
+            status=QueryStatus(),
+            query_str=q,
+            country=country,
+            min_price=min_price,
+            max_price=max_price,
+            strict=strict,
+            config=config,
+        )
 
-            response: Response = get_response(url=search_url, query=query)
+        base_url: str = f"https://{query.locale.domain}"
+        search_url: str = get_search_url(base_url, query)
+
+        response: Response | JSONResponse = get_response(url=search_url, query=query)
+
+        if isinstance(response, Response):
             feed_items: list[JsonFeedItem] = parse_search_results(
                 response.content, query, base_url
             )
@@ -91,49 +77,43 @@ class AmazonFeedGenerator:
                 base_url, query, feed_items
             )
 
-            return jsonify(json_feed), HTTPStatus.OK
+            return JSONResponse(content=json_feed)
+        else:
+            return response
 
-        except Exception as e:
-            self.logger.error(msg=f"Keyword search error: {e}")
-            return jsonify(
-                {"error": f"Keyword search error: {e}"}
-            ), HTTPStatus.INTERNAL_SERVER_ERROR
+    except Exception as e:
+        logger.error(msg=f"Keyword search error: {e}")
+        raise HTTPException(status_code=500, detail=f"Keyword search error: {e}")
 
-    def asin_lookup(self) -> tuple[FlaskResponse, int]:
-        """
-        Handle ASIN lookup requests.
-        """
-        try:
-            # Extract parameters
-            query_str: str = request.args.get("q", "")
-            country: str = request.args.get("country", "us")
-            min_price: str | None = request.args.get("min_price", "")
-            max_price: str | None = request.args.get("max_price", "")
 
-            # Validate input
-            if not query_str:
-                return jsonify(
-                    {"error": "Query string is required"}
-                ), HTTPStatus.BAD_REQUEST
+@app.get("/asin")
+async def asin_lookup(
+    q: str = Query(..., description="ASIN to look up"),
+    country: str = Query("us", description="Country code"),
+    min_price: str = Query(None, description="Minimum price"),
+    max_price: str = Query(None, description="Maximum price"),
+) -> JSONResponse:
+    """
+    Handle ASIN lookup requests.
+    """
+    try:
+        config: QueryConfig = feed_generator.create_query_config()
 
-            # Create query configuration
-            config: QueryConfig = self.create_query_config()
+        query: AmazonAsinQuery = AmazonAsinQuery(
+            status=QueryStatus(),
+            query_str=q,
+            country=country,
+            min_price=min_price,
+            max_price=max_price,
+            config=config,
+        )
 
-            # Create keyword query
-            query: AmazonAsinQuery = AmazonAsinQuery(
-                status=QueryStatus(),
-                query_str=query_str,
-                country=country,
-                min_price=min_price,
-                max_price=max_price,
-                config=config,
-            )
+        base_url: str = f"https://{query.locale.domain}"
+        search_url: str = get_dimension_url(query)
 
-            # Perform search and generate feed
-            base_url: str = f"https://{query.locale.domain}"
-            search_url: str = get_dimension_url(query)
+        response: Response | JSONResponse = get_response(url=search_url, query=query)
 
-            response: Response = get_response(url=search_url, query=query)
+        if isinstance(response, Response):
             feed_items: list[JsonFeedItem] = parse_item_details(
                 response.json(), query, base_url
             )
@@ -142,18 +122,21 @@ class AmazonFeedGenerator:
                 base_url, query, feed_items
             )
 
-            return jsonify(json_feed), HTTPStatus.OK
+            return JSONResponse(content=json_feed)
+        else:
+            return response
 
-        except Exception as e:
-            self.logger.error(msg=f"ASIN lookup error: {e}")
-            return jsonify(
-                {"error": f"ASIN lookup error: {e}"}
-            ), HTTPStatus.INTERNAL_SERVER_ERROR
+    except Exception as e:
+        logger.error(msg=f"ASIN lookup error: {e}")
+        raise HTTPException(status_code=500, detail=f"ASIN lookup error: {e}")
 
-    def healthcheck(self) -> tuple[FlaskResponse, int]:
-        return jsonify({"status": "ok"}), HTTPStatus.OK
+
+@app.get(path="/healthcheck")
+async def healthcheck() -> JSONResponse:
+    return JSONResponse(content={"status": "ok"})
 
 
 if __name__ == "__main__":
-    feed_generator: AmazonFeedGenerator = AmazonFeedGenerator()
-    feed_generator.app.run(host="0.0.0.0")
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
