@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import List
 
+from pydantic import HttpUrl
+
 from config.constants import ITEM_QUANTITY
 from models.feed import JsonFeedItem, JsonFeedTopLevel
 from models.query import AmazonAsinQuery, AmazonKeywordQuery, FilterableQuery
@@ -42,11 +44,11 @@ def generate_item(
 
     return JsonFeedItem(
         id=timestamp.isoformat(sep="T"),
-        url=item_link_url,
+        url=HttpUrl(url=item_link_url),
         title=f"[{item_price_text}] {item_title_text}",
         content_html=sanitized_html,
-        image=item_thumbnail_url if item_thumbnail_url else "",
-        date_published=timestamp.isoformat(sep="T"),
+        image=HttpUrl(url=item_thumbnail_url) if item_thumbnail_url else None,
+        date_published=timestamp,
     )
 
 
@@ -84,6 +86,6 @@ def get_top_level_feed(
         version="https://jsonfeed.org/version/1.1",
         items=feed_items,
         title=" - ".join(title_parts),
-        home_page_url=home_page_url,
-        favicon=f"{base_url}/favicon.ico",
+        home_page_url=HttpUrl(url=home_page_url),
+        favicon=HttpUrl(url=f"{base_url}/favicon.ico"),
     )
