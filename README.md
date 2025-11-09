@@ -1,5 +1,5 @@
 # amazon-feed
-A simple Python script to generate a [JSON Feed](https://github.com/brentsimmons/JSONFeed) for search results on [Amazon](https://www.amazon.com).
+A simple Python script to generate a [JSON Feed](https://www.jsonfeed.org/) for search results on [Amazon](https://www.amazon.com).
 
 Uses [BeautifulSoup 4](https://www.crummy.com/software/BeautifulSoup/) and served over [FastAPI!](https://fastapi.tiangolo.com/)
 
@@ -26,6 +26,9 @@ http://<host>/?q=radeon%206800
 Filtered feed link:
 http://<host>/?q=radeon%206800&min_price=800&max_price=1250&country=sg&strict=true
 ```
+
+API docs:
+http://localhost:8000/docs
 
 Tested with:
 - [Nextcloud News App](https://github.com/nextcloud/news)
