@@ -1,8 +1,8 @@
 from logging import Logger
 
-from services.item_generator import generate_item
 from models.feed import JsonFeedItem
 from models.query import AmazonAsinQuery
+from services.item_generator import generate_item
 
 
 def parse_item_details(

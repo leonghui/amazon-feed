@@ -1,29 +1,31 @@
 from urllib.parse import quote_plus, urlencode
-from models.query import AmazonLocale, FilterableQuery, AmazonAsinQuery
+from models.query import AmazonAsinQuery, AmazonLocale, FilterableQuery
 
 
 def get_search_url(base_url: str, query: FilterableQuery) -> str:
-    search_uri: str = f"{base_url}/s?"
+    """
+    Generate a search URL with optional price filtering.
 
-    search_dict: dict[str, str] = {"k": quote_plus(string=query.query_str)}
+    Args:
+        base_url: Base URL for the search engine
+        query: Query object containing search parameters
 
-    price_param_value = min_price = max_price = None
+    Returns:
+        Fully constructed search URL
+    """
+    search_params: dict[str, str] = {"k": quote_plus(string=query.query_str)}
 
+    # Handle price filtering
     if query.min_price or query.max_price:
-        price_param = "p_36:"
-        if query.min_price:
-            min_price = query.min_price + "00"
-        if query.max_price:
-            max_price = query.max_price + "00"
+        price_range: list[str] = [
+            "p_36:",
+            str(int(query.min_price * 100)) if query.min_price else "",
+            "-",
+            str(int(query.max_price * 100)) if query.max_price else "",
+        ]
+        search_params["rh"] = "".join(filter[str](None, price_range))
 
-        price_param_value: str = "".join(
-            item for item in [price_param, min_price, "-", max_price] if item
-        )
-
-    if price_param_value:
-        search_dict["rh"] = price_param_value
-
-    return search_uri + urlencode(query=search_dict)
+    return f"{base_url}/s?{urlencode(query=search_params)}"
 
 
 def get_item_url(base_url: str, item_id: str) -> str:
