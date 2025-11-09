@@ -15,7 +15,9 @@ def generate_linked_data(
     if not item_price:
         item_offer: Offer = Offer(availability="https://schema.org/OutOfStock")
     else:
-        item_offer = Offer(priceCurrency=item_price.currency_code, price=item_price.amount)
+        item_offer = Offer(
+            priceCurrency=item_price.currency_code, price=item_price.amount
+        )
 
     product: Product = Product(
         asin=Asin(id=item_id),
@@ -28,11 +30,13 @@ def generate_linked_data(
 
 
 def get_html(feed_items: list[Product]) -> str:
-    html_text: str = (
-        '<!DOCTYPE html><script type="application/ld+json">['
+    serialised_items = (
+        "["
         + ",".join(
             [product.model_dump_json(exclude_none=True) for product in feed_items]
         )
-        + "]</script></html>"
+        + "]"
     )
+
+    html_text: str = f'<!DOCTYPE html><script type="application/ld+json">{serialised_items}</script><body>{serialised_items}</body></html>'
     return html_text
