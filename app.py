@@ -1,4 +1,4 @@
-from logging import Logger
+from logging import Logger, getLogger
 
 from curl_cffi import Response, Session
 from fastapi import FastAPI, HTTPException, Query
@@ -12,11 +12,9 @@ from parsers.search_parser import parse_search_results
 from services.item_generator import get_top_level_feed
 from services.response_handler import get_response
 from services.url_builder import get_dimension_url, get_search_url
-from utils.logging import setup_logger
 
 app: FastAPI = FastAPI()
-logger: Logger = setup_logger(name="amazon_feed_generator", level="INFO")
-
+logger: Logger = getLogger(name="uvicorn.error")
 
 class AmazonFeedGenerator:
     def __init__(self) -> None:
@@ -77,7 +75,7 @@ async def keyword_search(
                 base_url, query, feed_items
             )
 
-            return JSONResponse(content=json_feed)
+            return JSONResponse(content=json_feed.model_dump(exclude_none=True))
         else:
             return response
 
@@ -122,7 +120,7 @@ async def asin_lookup(
                 base_url, query, feed_items
             )
 
-            return JSONResponse(content=json_feed)
+            return JSONResponse(content=json_feed.model_dump(exclude_none=True))
         else:
             return response
 
