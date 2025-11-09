@@ -3,19 +3,19 @@ from logging import Logger
 from bs4 import BeautifulSoup, ResultSet
 from bs4._typing import _AttributeValue
 from bs4.element import Tag
+from curl_cffi import Response
+from stockholm import Money
 
 from models.feed import JsonFeedItem
 from models.json_ld import Product
 from models.query import AmazonKeywordQuery
 from services.item_generator import generate_feed_item
 from services.ld_generator import generate_linked_data
-from stockholm import Money
-
 from utils.price import validate_price
 
 
 def parse_search_results(
-    response_content: bytes,
+    response: Response,
     query: AmazonKeywordQuery,
     base_url: str,
 ) -> list[JsonFeedItem | Product]:
@@ -30,7 +30,7 @@ def parse_search_results(
     logger: Logger = query.config.logger
 
     # Parse HTML
-    soup: BeautifulSoup = BeautifulSoup(markup=response_content, features="html.parser")
+    soup: BeautifulSoup = BeautifulSoup(markup=response.content, features="html.parser")
 
     # Select product result divs, excluding ad holders
     results: ResultSet[Tag] = soup.select(

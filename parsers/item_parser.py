@@ -1,34 +1,35 @@
 from logging import Logger
 
+from curl_cffi import Response
+from stockholm import Money
+
 from models.feed import JsonFeedItem
 from models.json_ld import Product
 from models.query import AmazonAsinQuery
 from services.item_generator import generate_feed_item
 from services.ld_generator import generate_linked_data
-from stockholm import Money
-
 from utils.price import validate_price
 
 
 def parse_item_details(
-    json_dict: dict, query: AmazonAsinQuery, base_url: str
+    response: Response, query: AmazonAsinQuery, base_url: str
 ) -> list[JsonFeedItem | Product]:
     logger: Logger = query.config.logger
 
     try:
         # Navigate nested JSON structure
         price_data = (
-            json_dict.get("Value", {}).get("content", {}).get("twisterSlotJson", {})
+            response.json().get("Value", {}).get("content", {}).get("twisterSlotJson", {})
         )
 
         # Extract price
-        price_str: str = price_data.get("price")
+        price_flt: float = price_data.get("price")
 
-        if not price_str:
+        if not price_flt:
             logger.error(msg=f"{query.query_str} - Price not found")
             return []
 
-        price: Money = validate_price(query, price_str)
+        price: Money = validate_price(query, str(price_flt))
 
         # Check against max price if specified
         if query.max_price and price > float(query.max_price):

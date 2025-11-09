@@ -62,9 +62,7 @@ class AmazonFeedGenerator:
             )
 
             if isinstance(response, CurlResponse):
-                feed_items: list = parser_func(
-                    response.content or response.json(), query, base_url
-                )
+                feed_items: list = parser_func(response, query, base_url)
 
                 if params.jsonld:
                     html_text: str = get_html(feed_items)
