@@ -1,6 +1,6 @@
 import re
 
-from models.amazon import AmazonLocale, locale_list
+from models.amazon.locale import AmazonLocale, locale_list
 
 ASIN_PATTERN = r"^(B[\dA-Z]{9}|\d{9}(X|\d))$"
 
@@ -16,12 +16,6 @@ def convert_to_locale(value: str) -> AmazonLocale:
     country_code: str = value
 
     return next((locale for locale in locale_list if locale.code == country_code))
-
-
-def validate_price_filters(value: str) -> int:
-    if value and not value.isnumeric():
-        raise ValueError("Invalid price filter")
-    return int(value)
 
 
 def validate_query_str(value: str) -> str:

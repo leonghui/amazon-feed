@@ -3,4 +3,5 @@ curl_cffi
 fastapi
 nh3
 pydantic
+stockholm
 uvicorn

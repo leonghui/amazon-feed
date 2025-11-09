@@ -5,11 +5,10 @@ from curl_cffi import Session
 from fastapi import Query
 from pydantic import AfterValidator, BaseModel, Field, PositiveFloat
 
-from models.amazon import AmazonLocale, default_locale
+from models.amazon.locale import AmazonLocale, default_locale
 from models.validators import (
     validate_asin,
     validate_country,
-    validate_price_filters,
     validate_query_str,
 )
 
@@ -39,9 +38,8 @@ class _BaseQuery(BaseModel):
     status: QueryStatus
     config: QueryConfig
     query_str: str
-    locale: AmazonLocale = (
-        default_locale
-    )
+    locale: AmazonLocale = default_locale
+    jsonld: bool = False
 
 
 class FilterableQuery(_BaseQuery):
@@ -66,10 +64,7 @@ class QueryParams(BaseModel):
     country: Annotated[str, AfterValidator(func=validate_country)] = Field(
         Query("us", description="Country code")
     )
-    min_price: Annotated[int, AfterValidator(func=validate_price_filters)] | None = (
-        Field(Query(None, description="Minimum price"))
-    )
-    max_price: Annotated[int, AfterValidator(func=validate_price_filters)] | None = (
-        Field(Query(None, description="Maximum price"))
-    )
+    min_price: PositiveFloat | None = Field(Query(None, description="Minimum price"))
+    max_price: PositiveFloat | None = Field(Query(None, description="Maximum price"))
     strict: bool | None = Field(Query(False, description="Strict mode"))
+    jsonld: bool = Field(Query(False, description="Return output as JSON-LD"))

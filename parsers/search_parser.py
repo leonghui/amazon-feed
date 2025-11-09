@@ -5,13 +5,20 @@ from bs4._typing import _AttributeValue
 from bs4.element import Tag
 
 from models.feed import JsonFeedItem
+from models.json_ld import Product
 from models.query import AmazonKeywordQuery
-from services.item_generator import generate_item
+from services.item_generator import generate_feed_item
+from services.ld_generator import generate_linked_data
+from stockholm import Money
+
+from utils.price import validate_price
 
 
 def parse_search_results(
-    response_content: bytes, query: AmazonKeywordQuery, base_url: str
-) -> list[JsonFeedItem]:
+    response_content: bytes,
+    query: AmazonKeywordQuery,
+    base_url: str,
+) -> list[JsonFeedItem | Product]:
     """
     Parse Amazon search results page and extract product details.
 
@@ -19,9 +26,6 @@ def parse_search_results(
         response_content (bytes): HTML content of search results
         query (AmazonKeywordQuery): Search query configuration
         base_url (str): Base URL of Amazon locale
-
-    Returns:
-        list[JsonFeedItem]: Generated feed items matching search criteria
     """
     logger: Logger = query.config.logger
 
@@ -43,7 +47,7 @@ def parse_search_results(
         set(query.query_str.lower().split()) if query.strict else set()
     )
 
-    generated_items: list[JsonFeedItem] = []
+    generated_items: list[JsonFeedItem | Product] = []
 
     for item_id, item_soup in results_dict.items():
         # Extract product details
@@ -52,11 +56,11 @@ def parse_search_results(
 
         # Price extraction
         price_elem: Tag | None = item_soup.select_one(selector=".a-price .a-offscreen")
-        price: float | None = (
-            float(price_elem.text.replace(query.locale.currency, "").strip())
-            if price_elem
-            else None
-        )
+
+        if not price_elem:
+            continue
+
+        price: Money = validate_price(query, price_str=price_elem.text)
 
         # Thumbnail extraction
         thumbnail_elem: Tag | None = item_soup.find(
@@ -79,15 +83,26 @@ def parse_search_results(
 
         # Generate feed item
         try:
-            feed_item: JsonFeedItem = generate_item(
-                base_url,
-                item_id=str(item_id),
-                item_title=title,
-                item_price=price,
-                item_price_currency=query.locale.currency,
-                item_thumbnail_url=str(thumbnail_url),
-            )
-            generated_items.append(feed_item)
+            if query.jsonld:
+                generated_items.append(
+                    generate_linked_data(
+                        base_url,
+                        item_id=str(item_id),
+                        item_title=title,
+                        item_price=price,
+                        item_thumbnail_url=str(thumbnail_url),
+                    )
+                )
+            else:
+                generated_items.append(
+                    generate_feed_item(
+                        base_url,
+                        item_id=str(item_id),
+                        item_title=title,
+                        item_price=price,
+                        item_thumbnail_url=str(thumbnail_url),
+                    )
+                )
         except Exception as e:
             logger.error(msg=f"Error generating item {item_id}: {e}")
 

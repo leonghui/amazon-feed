@@ -1,5 +1,5 @@
 from urllib.parse import quote_plus, urlencode
-from models.query import AmazonAsinQuery, AmazonLocale, FilterableQuery
+from models.query import AmazonAsinQuery, FilterableQuery
 
 
 def get_search_url(base_url: str, query: FilterableQuery) -> str:
@@ -23,7 +23,7 @@ def get_search_url(base_url: str, query: FilterableQuery) -> str:
             "-",
             str(int(query.max_price * 100)) if query.max_price else "",
         ]
-        search_params["rh"] = "".join(filter[str](None, price_range))
+        search_params["rh"] = "".join(filter(None, price_range))
 
     return f"{base_url}/s?{urlencode(query=search_params)}"
 
@@ -32,9 +32,7 @@ def get_item_url(base_url: str, item_id: str) -> str:
     return base_url + "/gp/product/" + item_id
 
 
-def get_dimension_url(query: AmazonAsinQuery) -> str:
-    locale_data: AmazonLocale = query.locale
-    base_url: str = "https://" + locale_data.domain
+def get_dimension_url(base_url: str, query: AmazonAsinQuery) -> str:
     dimension_endpoint: str = (
         base_url + "/gp/product/ajax/twisterDimensionSlotsDefault?"
     )

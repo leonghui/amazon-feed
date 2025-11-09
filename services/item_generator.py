@@ -1,29 +1,22 @@
 from datetime import datetime
-from typing import List
 
 from pydantic import HttpUrl
 
 from config.constants import ITEM_QUANTITY
-from models.extended_feed import (
-    ExtendedJsonFeedItem,
-    ExtendedJsonFeedTopLevel,
-    Offer,
-    Product,
-)
-from models.feed import JsonFeedItem
+from models.feed import JsonFeedItem, JsonFeedTopLevel
 from models.query import AmazonAsinQuery, AmazonKeywordQuery, FilterableQuery
 from services.url_builder import get_item_url, get_search_url
+from stockholm import Money
 from utils.sanitize import sanitize_html
 
 
-def generate_item(
+def generate_feed_item(
     base_url: str,
     item_id: str,
-    item_price: float | None,
-    item_price_currency: str,
+    item_price: Money | None,
     item_title: str | None = None,
     item_thumbnail_url: str | None = None,
-) -> ExtendedJsonFeedItem:
+) -> JsonFeedItem:
     """Generate a JsonFeedItem with structured metadata and sanitized HTML content."""
     timestamp: datetime = datetime.now()
     item_title_text: str = item_title.strip() if item_title else item_id
@@ -32,22 +25,6 @@ def generate_item(
     item_link_url: str = get_item_url(base_url, item_id)
     item_add_to_cart_url: str = (
         f"{base_url}/gp/aws/cart/add.html?ASIN.1={item_id}&Quantity.1={ITEM_QUANTITY}"
-    )
-
-    if item_price:
-        item_offer: Offer = Offer(priceCurrency=item_price_currency, price=item_price)
-    else:
-        item_offer = Offer(
-            priceCurrency=item_price_currency,
-            availability="https://schema.org/OutOfStock",
-            price=None,
-        )
-
-    item_ld: Product = Product(
-        asin=item_id,
-        name=item_title,
-        image=[HttpUrl(url=item_thumbnail_url)] if item_thumbnail_url else None,
-        offers=item_offer,
     )
 
     # Construct content body
@@ -65,24 +42,21 @@ def generate_item(
     # Sanitize HTML
     sanitized_html: str = sanitize_html(html="".join(content_parts))
 
-    return ExtendedJsonFeedItem(
+    return JsonFeedItem(
         id=timestamp.isoformat(sep="T"),
         url=HttpUrl(url=item_link_url),
-        title=f"[{item_price_currency}{item_price:.2f}] {item_title_text}",
+        title=f"[{item_price.value if item_price else "N/A"}] {item_title_text}",
         content_html=sanitized_html,
         image=HttpUrl(url=item_thumbnail_url) if item_thumbnail_url else None,
         date_published=timestamp,
-        _linked_data='<script type="application/ld+json">'
-        + item_ld.model_dump_json(exclude_none=True)
-        + "</script>",
     )
 
 
 def get_top_level_feed(
     base_url: str,
     query: FilterableQuery,
-    feed_items: List[JsonFeedItem | ExtendedJsonFeedItem],
-) -> ExtendedJsonFeedTopLevel:
+    feed_items: list[JsonFeedItem],
+) -> JsonFeedTopLevel:
     """Generate a top-level JSON feed with metadata and filters."""
     # Prepare title and filters
     title_parts: list[str] = [base_url.replace("https://", ""), query.query_str]
@@ -90,9 +64,9 @@ def get_top_level_feed(
 
     # Add price filters
     if query.min_price:
-        filters.append(f"min {query.locale.currency}{query.min_price}")
+        filters.append(f"min {query.min_price}")
     if query.max_price:
-        filters.append(f"max {query.locale.currency}{query.max_price}")
+        filters.append(f"max {query.max_price}")
 
     # Add strict search filter
     if isinstance(query, AmazonKeywordQuery) and query.strict:
@@ -110,7 +84,7 @@ def get_top_level_feed(
     else:
         home_page_url = base_url
 
-    return ExtendedJsonFeedTopLevel(
+    return JsonFeedTopLevel(
         version="https://jsonfeed.org/version/1.1",
         items=feed_items,
         title=" - ".join(title_parts),

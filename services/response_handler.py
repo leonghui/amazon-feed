@@ -3,7 +3,7 @@ from logging import Logger
 import re
 
 from curl_cffi.requests.exceptions import RequestException
-from curl_cffi import Response, Session
+from curl_cffi import Response as CurlResponse, Session
 from fastapi.responses import JSONResponse
 
 from config.constants import CFFI_IMPERSONATE, HEADERS
@@ -15,7 +15,7 @@ def clear_session_cookies(query: FilterableQuery) -> None:
     query.config.session.cookies.clear()
 
 
-def get_response(url: str, query: FilterableQuery) -> Response | JSONResponse:
+def get_response(url: str, query: FilterableQuery) -> CurlResponse | JSONResponse:
     """
     Send a GET request with error handling and bot detection.
 
@@ -35,7 +35,7 @@ def get_response(url: str, query: FilterableQuery) -> Response | JSONResponse:
     logger.debug(msg=f"{query.query_str} - querying: {url}")
 
     try:
-        response: Response = session.get(
+        response: CurlResponse = session.get(
             url, impersonate=CFFI_IMPERSONATE, default_headers=False, headers=headers
         )
 
