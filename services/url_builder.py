@@ -35,11 +35,11 @@ def get_item_url(base_url: str, item_id: str) -> str:
 def get_dimension_url(query: AmazonAsinQuery) -> str:
     locale_data: AmazonLocale = query.locale
     base_url: str = "https://" + locale_data.domain
-    dimension_endpoint: str = base_url + "/gp/product/ajax?"
-
+    dimension_endpoint: str = (
+        base_url + "/gp/product/ajax/twisterDimensionSlotsDefault?"
+    )
     query_dict: dict[str, str] = {
         "asinList": query.query_str,
-        "experienceId": "twisterDimensionSlotsDefault",
         "asin": query.query_str,
         "deviceType": "mobile",
     }

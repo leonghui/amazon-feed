@@ -51,7 +51,7 @@ def get_response(url: str, query: FilterableQuery) -> Response | JSONResponse:
 
         if not response.ok:
             # Paywall or bot detection
-            if response.status_code == 503 or any(
+            if response.status_code == 404 or any(
                 re.search(pattern, response.text, re.IGNORECASE)
                 for pattern in bot_patterns
             ):
