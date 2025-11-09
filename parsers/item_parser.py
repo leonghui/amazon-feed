@@ -1,5 +1,6 @@
 from logging import Logger
 
+from models.extended_feed import ExtendedJsonFeedItem
 from models.feed import JsonFeedItem
 from models.query import AmazonAsinQuery
 from services.item_generator import generate_item
@@ -7,7 +8,7 @@ from services.item_generator import generate_item
 
 def parse_item_details(
     json_dict: dict, query: AmazonAsinQuery, base_url: str
-) -> list[JsonFeedItem]:
+) -> list[JsonFeedItem | ExtendedJsonFeedItem]:
     logger: Logger = query.config.logger
 
     try:
@@ -31,16 +32,14 @@ def parse_item_details(
             logger.info(msg=f"{query.query_str} - Exceeded max price {query.max_price}")
             return []
 
-        # Format price with currency
-        formatted_price: str = f"{query.locale.currency}{price:.2f}"
-
-        generated_items: list[JsonFeedItem] = []
+        generated_items: list[JsonFeedItem | ExtendedJsonFeedItem] = []
 
         generated_items.append(
             generate_item(
                 base_url,
                 item_id=query.query_str,
-                item_price_text=formatted_price,
+                item_price=price,
+                item_price_currency=query.locale.currency,
             )
         )
 

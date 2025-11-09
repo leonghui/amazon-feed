@@ -52,7 +52,11 @@ def parse_search_results(
 
         # Price extraction
         price_elem: Tag | None = item_soup.select_one(selector=".a-price .a-offscreen")
-        price: str = price_elem.text.strip() if price_elem else "N/A"
+        price: float | None = (
+            float(price_elem.text.replace(query.locale.currency, "").strip())
+            if price_elem
+            else None
+        )
 
         # Thumbnail extraction
         thumbnail_elem: Tag | None = item_soup.find(
@@ -79,7 +83,8 @@ def parse_search_results(
                 base_url,
                 item_id=str(item_id),
                 item_title=title,
-                item_price_text=price,
+                item_price=price,
+                item_price_currency=query.locale.currency,
                 item_thumbnail_url=str(thumbnail_url),
             )
             generated_items.append(feed_item)

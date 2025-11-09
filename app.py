@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from config.constants import DEFAULT_USER_AGENT
+from models.extended_feed import ExtendedJsonFeedItem, ExtendedJsonFeedTopLevel
 from models.feed import JsonFeedItem, JsonFeedTopLevel
 from models.query import (
     AmazonAsinQuery,
@@ -107,11 +108,11 @@ async def asin_lookup(params: QueryParams = Depends()) -> JSONResponse:
         response: Response | JSONResponse = get_response(url=search_url, query=query)
 
         if isinstance(response, Response):
-            feed_items: list[JsonFeedItem] = parse_item_details(
+            feed_items: list[JsonFeedItem | ExtendedJsonFeedItem] = parse_item_details(
                 response.json(), query, base_url
             )
 
-            json_feed: JsonFeedTopLevel = get_top_level_feed(
+            json_feed: ExtendedJsonFeedTopLevel = get_top_level_feed(
                 base_url, query, feed_items
             )
 

@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Annotated, TypeAlias
+
 from pydantic import BaseModel, HttpUrl, PlainSerializer
+from pydantic.config import ConfigDict
 
 JSONFEED_VERSION_URL = "https://jsonfeed.org/version/1.1"
 
@@ -50,6 +52,8 @@ class JsonFeedItem(BaseModel):
     tags: list[str] | None = None
     language: str | None = None
     attachments: list[JsonFeedItemAttachment] | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class JsonFeedTopLevel(BaseModel):

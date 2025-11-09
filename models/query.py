@@ -3,7 +3,7 @@ from typing import Annotated
 
 from curl_cffi import Session
 from fastapi import Query
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, PositiveFloat
 
 from models.amazon import AmazonLocale, default_locale
 from models.validators import (
@@ -45,8 +45,8 @@ class _BaseQuery(BaseModel):
 
 
 class FilterableQuery(_BaseQuery):
-    min_price: int | None = None
-    max_price: int | None = None
+    min_price: PositiveFloat | None = None
+    max_price: PositiveFloat | None = None
 
 
 class _AmazonKeywordFilter(BaseModel):
